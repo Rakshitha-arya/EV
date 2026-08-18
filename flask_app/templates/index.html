@@ -1,0 +1,821 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>EV Digital Twin | Predictive Dashboard</title>
+
+    <link rel="stylesheet"
+          href="{{ url_for('static', filename='style.css') }}">
+</head>
+
+<body>
+
+<!-- ================= HEADER ================= -->
+
+<header class="header">
+
+    <div class="brand">
+        <div class="brand-icon">⚡</div>
+
+        <div>
+            <h1>EV DIGITAL TWIN</h1>
+            <p>Predictive Battery & Vehicle Intelligence</p>
+        </div>
+    </div>
+
+    <div class="system-status">
+        <span class="online-dot"></span>
+        <span id="connectionText">SYSTEM ONLINE</span>
+    </div>
+
+</header>
+
+
+<main class="dashboard">
+
+
+<!-- ================= HERO STATUS ================= -->
+
+<section class="hero-card">
+
+    <div class="hero-left">
+
+        <span class="eyebrow">
+            VEHICLE STATUS
+        </span>
+
+        <h2 id="vehicleStatus">
+            SAFE TO DRIVE
+        </h2>
+
+        <p>
+            Digital twin is continuously monitoring the vehicle.
+        </p>
+
+    </div>
+
+    <div class="risk-box">
+
+        <span>OVERALL RISK</span>
+
+        <strong id="overallRisk">
+            LOW
+        </strong>
+
+        <small id="riskPercent">
+            12%
+        </small>
+
+    </div>
+
+</section>
+
+
+<!-- ================= CORE STATUS ================= -->
+
+<section class="section">
+
+    <div class="section-heading">
+        <h2>Vehicle Intelligence</h2>
+        <span>REAL-TIME</span>
+    </div>
+
+
+    <div class="intelligence-grid">
+
+
+        <!-- BATTERY -->
+
+        <div class="info-card">
+
+            <div class="card-title">
+
+                <div class="card-symbol battery-symbol">
+                    🔋
+                </div>
+
+                <div>
+                    <h3>Battery Health</h3>
+                    <p>Battery condition</p>
+                </div>
+
+            </div>
+
+
+            <div class="big-value">
+                <span id="soh">90.13</span>
+                <small>% SOH</small>
+            </div>
+
+
+            <div class="mini-grid">
+
+                <div>
+                    <span>SOC</span>
+                    <strong id="soc">-- %</strong>
+                </div>
+
+                <div>
+                    <span>Voltage</span>
+                    <strong id="voltage">12.0 V</strong>
+                </div>
+
+                <div>
+                    <span>Current</span>
+                    <strong id="current">3.0 A</strong>
+                </div>
+
+                <div>
+                    <span>Temperature</span>
+                    <strong id="temperature">29.2 °C</strong>
+                </div>
+
+            </div>
+
+
+            <div class="health-status">
+                <span class="status-dot green"></span>
+                <span id="sohStatus">HEALTHY</span>
+            </div>
+
+        </div>
+
+
+        <!-- LOAD -->
+
+        <div class="info-card">
+
+            <div class="card-title">
+
+                <div class="card-symbol load-symbol">
+                    ⚖
+                </div>
+
+                <div>
+                    <h3>Load Capacity</h3>
+                    <p>Vehicle load analysis</p>
+                </div>
+
+            </div>
+
+
+            <div class="load-display">
+
+                <strong id="currentLoad">
+                    42
+                </strong>
+
+                <span>kg</span>
+
+            </div>
+
+
+            <div class="load-limit">
+
+                <div>
+                    <span>Safe limit</span>
+                    <strong id="maxLoad">
+                        60 kg
+                    </strong>
+                </div>
+
+                <div>
+                    <span>Utilization</span>
+                    <strong id="loadPercentage">
+                        70%
+                    </strong>
+                </div>
+
+            </div>
+
+
+            <div class="progress-bar">
+
+                <div
+                    id="loadProgress"
+                    class="progress-fill"
+                    style="width:70%">
+                </div>
+
+            </div>
+
+
+            <div class="health-status">
+
+                <span class="status-dot green"></span>
+
+                <span id="loadStatus">
+                    SAFE LOAD
+                </span>
+
+            </div>
+
+        </div>
+
+
+        <!-- ROAD -->
+
+        <div class="info-card">
+
+            <div class="card-title">
+
+                <div class="card-symbol road-symbol">
+                    🛣
+                </div>
+
+                <div>
+                    <h3>Road Condition</h3>
+                    <p>Driving environment</p>
+                </div>
+
+            </div>
+
+
+            <div class="road-condition">
+
+                <strong id="roadCondition">
+                    SMOOTH
+                </strong>
+
+                <span id="roadIcon">
+                    🟢
+                </span>
+
+            </div>
+
+
+            <div class="road-data">
+
+                <div>
+                    <span>Speed</span>
+
+                    <strong id="speed">
+                        15.3 km/h
+                    </strong>
+                </div>
+
+                <div>
+                    <span>Slope</span>
+
+                    <strong id="roadSlope">
+                        +1.2°
+                    </strong>
+                </div>
+
+            </div>
+
+
+            <div class="road-message"
+                 id="roadMessage">
+
+                Road condition is normal.
+
+            </div>
+
+        </div>
+
+    </div>
+
+</section>
+
+
+<!-- ================= PREDICTION ================= -->
+
+<section class="section">
+
+    <div class="section-heading">
+
+        <div>
+            <h2>Predictive Analysis</h2>
+
+            <p>
+                Early warning before abnormal conditions occur
+            </p>
+        </div>
+
+        <span class="prediction-badge">
+            PREDICTIVE
+        </span>
+
+    </div>
+
+
+    <div class="prediction-grid">
+
+
+        <!-- BATTERY FAULT -->
+
+        <div class="prediction-card">
+
+            <div class="prediction-top">
+
+                <span>Battery Fault</span>
+
+                <strong id="batteryFaultRisk">
+                    9%
+                </strong>
+
+            </div>
+
+            <div class="risk-progress">
+                <div
+                    id="batteryFaultBar"
+                    style="width:9%">
+                </div>
+            </div>
+
+            <small id="batteryFaultStatus">
+                LOW RISK
+            </small>
+
+        </div>
+
+
+        <!-- TEMPERATURE -->
+
+        <div class="prediction-card">
+
+            <div class="prediction-top">
+
+                <span>Overheating</span>
+
+                <strong id="temperatureRisk">
+                    18%
+                </strong>
+
+            </div>
+
+            <div class="risk-progress">
+                <div
+                    id="temperatureRiskBar"
+                    style="width:18%">
+                </div>
+            </div>
+
+            <small>
+                LOW RISK
+            </small>
+
+        </div>
+
+
+        <!-- OVERLOAD -->
+
+        <div class="prediction-card">
+
+            <div class="prediction-top">
+
+                <span>Overload</span>
+
+                <strong id="overloadRisk">
+                    12%
+                </strong>
+
+            </div>
+
+            <div class="risk-progress">
+
+                <div
+                    id="overloadRiskBar"
+                    style="width:12%">
+                </div>
+
+            </div>
+
+            <small>
+                LOW RISK
+            </small>
+
+        </div>
+
+
+        <!-- TYRE -->
+
+        <div class="prediction-card">
+
+            <div class="prediction-top">
+
+                <span>Tyre Fault</span>
+
+                <strong id="tyreRisk">
+                    7%
+                </strong>
+
+            </div>
+
+            <div class="risk-progress">
+
+                <div
+                    id="tyreRiskBar"
+                    style="width:7%">
+                </div>
+
+            </div>
+
+            <small>
+                LOW RISK
+            </small>
+
+        </div>
+
+    </div>
+
+
+    <!-- PREDICTION MESSAGE -->
+
+    <div class="prediction-message">
+
+        <div class="prediction-icon">
+            🔮
+        </div>
+
+        <div>
+
+            <strong id="predictionTitle">
+                Battery condition predicted to remain healthy
+            </strong>
+
+            <p id="predictionMessage">
+                No immediate abnormal condition detected.
+            </p>
+
+        </div>
+
+    </div>
+
+</section>
+
+
+<!-- ================= BATTERY ANALYTICS ================= -->
+
+<section class="section">
+
+    <div class="section-heading">
+
+        <div>
+            <h2>Battery Analytics</h2>
+            <p>Historical and real-time battery behaviour</p>
+        </div>
+
+    </div>
+
+
+    <div class="charts-grid">
+
+
+        <!-- SOH -->
+
+        <div class="chart-card">
+
+            <div class="chart-header">
+
+                <div>
+                    <h3>Battery SOH</h3>
+                    <p>State of Health trend</p>
+                </div>
+
+                <span>%</span>
+
+            </div>
+
+            <div class="chart-container">
+                <canvas id="sohChart"></canvas>
+            </div>
+
+        </div>
+
+
+        <!-- VOLTAGE -->
+
+        <div class="chart-card">
+
+            <div class="chart-header">
+
+                <div>
+                    <h3>Battery Voltage</h3>
+                    <p>Voltage variation</p>
+                </div>
+
+                <span>V</span>
+
+            </div>
+
+            <div class="chart-container">
+                <canvas id="voltageChart"></canvas>
+            </div>
+
+        </div>
+
+
+        <!-- CURRENT -->
+
+        <div class="chart-card">
+
+            <div class="chart-header">
+
+                <div>
+                    <h3>Battery Current</h3>
+                    <p>Current consumption</p>
+                </div>
+
+                <span>A</span>
+
+            </div>
+
+            <div class="chart-container">
+                <canvas id="currentChart"></canvas>
+            </div>
+
+        </div>
+
+
+        <!-- TEMPERATURE -->
+
+        <div class="chart-card">
+
+            <div class="chart-header">
+
+                <div>
+                    <h3>Battery Temperature</h3>
+                    <p>Thermal behaviour</p>
+                </div>
+
+                <span>°C</span>
+
+            </div>
+
+            <div class="chart-container">
+                <canvas id="temperatureChart"></canvas>
+            </div>
+
+        </div>
+
+    </div>
+
+</section>
+
+
+<!-- ================= VEHICLE DATA ================= -->
+
+<section class="section">
+
+    <div class="section-heading">
+
+        <h2>Vehicle Parameters</h2>
+
+    </div>
+
+
+    <div class="parameter-grid">
+
+
+        <div class="parameter-card">
+
+            <span>Battery Power</span>
+
+            <strong id="power">
+                36.0 W
+            </strong>
+
+        </div>
+
+
+        <div class="parameter-card">
+
+            <span>GPS Speed</span>
+
+            <strong id="gpsSpeed">
+                15.3 km/h
+            </strong>
+
+        </div>
+
+
+        <div class="parameter-card">
+
+            <span>Tyre Pressure</span>
+
+            <strong id="pressure">
+                31.8 PSI
+            </strong>
+
+        </div>
+
+
+        <div class="parameter-card">
+
+            <span>Latitude</span>
+
+            <strong id="latitude">
+                --
+            </strong>
+
+        </div>
+
+
+        <div class="parameter-card">
+
+            <span>Longitude</span>
+
+            <strong id="longitude">
+                --
+            </strong>
+
+        </div>
+
+    </div>
+
+</section>
+
+
+<!-- ================= FAULT MONITORING ================= -->
+
+<section class="section">
+
+    <div class="section-heading">
+
+        <h2>Current Fault Monitoring</h2>
+
+        <span>
+            CURRENT STATE
+        </span>
+
+    </div>
+
+
+    <div class="fault-grid">
+
+
+        <div class="fault-card">
+
+            <span>Voltage</span>
+
+            <strong
+                id="voltageStatus"
+                class="normal">
+                NORMAL
+            </strong>
+
+        </div>
+
+
+        <div class="fault-card">
+
+            <span>Current</span>
+
+            <strong
+                id="currentStatus"
+                class="normal">
+                NORMAL
+            </strong>
+
+        </div>
+
+
+        <div class="fault-card">
+
+            <span>Temperature</span>
+
+            <strong
+                id="temperatureStatus"
+                class="normal">
+                NORMAL
+            </strong>
+
+        </div>
+
+
+        <div class="fault-card">
+
+            <span>Tyre Pressure</span>
+
+            <strong
+                id="pressureStatus"
+                class="normal">
+                NORMAL
+            </strong>
+
+        </div>
+
+
+        <div class="fault-card">
+
+            <span>SOH</span>
+
+            <strong
+                id="faultSohStatus"
+                class="normal">
+                NORMAL
+            </strong>
+
+        </div>
+
+    </div>
+
+</section>
+
+
+<!-- ================= MAINTENANCE ================= -->
+
+<section class="maintenance-section">
+
+    <div class="maintenance-content">
+
+        <div class="maintenance-icon">
+            🔧
+        </div>
+
+        <div>
+
+            <span class="eyebrow">
+                PREDICTIVE MAINTENANCE
+            </span>
+
+            <h2 id="maintenanceTitle">
+                No immediate service required
+            </h2>
+
+            <p id="maintenanceMessage">
+                The vehicle is currently operating within
+                normal conditions.
+            </p>
+
+        </div>
+
+    </div>
+
+
+    <button
+        id="serviceButton"
+        class="service-button"
+        onclick="findServiceCenters()">
+
+        FIND NEARBY SERVICE CENTERS
+
+    </button>
+
+</section>
+
+
+<!-- ================= SERVICE CENTERS ================= -->
+
+<section
+    id="serviceSection"
+    class="service-section hidden">
+
+    <div class="section-heading">
+
+        <h2>Nearby Service Centers</h2>
+
+        <span>GPS BASED</span>
+
+    </div>
+
+
+    <div
+        id="serviceList"
+        class="service-list">
+
+        <!-- Service centers will appear here -->
+
+    </div>
+
+</section>
+
+
+</main>
+
+
+<!-- ================= FOOTER ================= -->
+
+<footer>
+
+    <strong>EV Digital Twin</strong>
+
+    <span>
+        Battery SOH • Predictive Fault Detection •
+        Load Analysis • Road Condition
+    </span>
+
+</footer>
+
+
+<!-- ================= CHART.JS ================= -->
+
+<script
+    src="https://cdn.jsdelivr.net/npm/chart.js">
+</script>
+
+
+<!-- ================= PROJECT JS ================= -->
+
+<script
+    src="{{ url_for('static', filename='script.js') }}">
+</script>
+
+
+</body>
+</html>

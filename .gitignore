@@ -1,0 +1,19 @@
+# Datasets
+datasets/
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+env/
+
+# Environment / secrets
+.env
+
+# IDE
+.vscode/
+.idea/
+
+# Logs
+*.log

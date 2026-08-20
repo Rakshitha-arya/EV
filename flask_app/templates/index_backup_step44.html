@@ -1,0 +1,902 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+
+    <meta charset="UTF-8">
+
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1.0"
+    >
+
+    <title>
+        EV Digital Twin
+    </title>
+
+
+    <!-- Leaflet map CSS -->
+    <link
+        rel="stylesheet"
+        href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+    >
+
+
+    <!-- Project CSS -->
+    <link
+        rel="stylesheet"
+        href="{{ url_for('static', filename='style.css') }}"
+    >
+
+</head>
+
+
+<body>
+
+
+<!-- =========================================================
+     TOP NAVIGATION
+     ========================================================= -->
+
+<header class="topbar">
+
+    <div class="brand">
+
+        <div class="brand-icon">
+            ⚡
+        </div>
+
+        <div>
+
+            <h1>
+                EV DIGITAL TWIN
+            </h1>
+
+            <p>
+                Intelligent Electric Vehicle Monitoring System
+            </p>
+
+        </div>
+
+    </div>
+
+
+    <div class="server-status">
+
+        <span
+            id="serverDot"
+            class="status-dot">
+        </span>
+
+        <span id="serverStatus">
+            CONNECTING
+        </span>
+
+    </div>
+
+</header>
+
+
+
+<!-- =========================================================
+     MAIN
+     ========================================================= -->
+
+<main class="dashboard-container">
+
+
+<!-- =========================================================
+     HERO
+     ========================================================= -->
+
+<section class="hero">
+
+    <div>
+
+        <span class="eyebrow">
+            REAL-TIME VEHICLE INTELLIGENCE
+        </span>
+
+        <h2>
+            EV Digital Twin Dashboard
+        </h2>
+
+        <p>
+            Battery health, vehicle condition,
+            predictive fault monitoring and
+            service-center navigation.
+        </p>
+
+    </div>
+
+
+    <div class="hero-status">
+
+        <span>
+            VEHICLE STATUS
+        </span>
+
+        <strong id="vehicleStatus">
+            CONNECTING
+        </strong>
+
+    </div>
+
+</section>
+
+
+
+<!-- =========================================================
+     BATTERY OVERVIEW
+     ========================================================= -->
+
+<section>
+
+    <div class="section-title">
+
+        <div>
+
+            <h2>
+                Battery Overview
+            </h2>
+
+            <p>
+                Real-time battery condition and
+                machine-learning SOH estimation.
+            </p>
+
+        </div>
+
+    </div>
+
+
+    <div class="card-grid">
+
+
+        <div class="metric-card">
+
+            <div class="metric-icon">
+                🔋
+            </div>
+
+            <div>
+
+                <span>
+                    Battery Voltage
+                </span>
+
+                <strong id="batteryVoltage">
+                    --
+                </strong>
+
+            </div>
+
+        </div>
+
+
+
+        <div class="metric-card">
+
+            <div class="metric-icon">
+                ⚡
+            </div>
+
+            <div>
+
+                <span>
+                    Battery Current
+                </span>
+
+                <strong id="batteryCurrent">
+                    --
+                </strong>
+
+            </div>
+
+        </div>
+
+
+
+        <div class="metric-card">
+
+            <div class="metric-icon">
+                🌡️
+            </div>
+
+            <div>
+
+                <span>
+                    Battery Temperature
+                </span>
+
+                <strong id="batteryTemperature">
+                    --
+                </strong>
+
+            </div>
+
+        </div>
+
+
+
+        <div class="metric-card">
+
+            <div class="metric-icon">
+                🔌
+            </div>
+
+            <div>
+
+                <span>
+                    Battery Power
+                </span>
+
+                <strong id="batteryPower">
+                    --
+                </strong>
+
+            </div>
+
+        </div>
+
+
+
+        <div class="metric-card soh-card">
+
+            <div class="metric-icon">
+                ❤️
+            </div>
+
+            <div>
+
+                <span>
+                    Battery SOH
+                </span>
+
+                <strong id="batterySOH">
+                    --
+                </strong>
+
+                <small>
+                    State of Health
+                </small>
+
+            </div>
+
+        </div>
+
+
+
+        <div class="metric-card">
+
+            <div class="metric-icon">
+                📊
+            </div>
+
+            <div>
+
+                <span>
+                    Battery SOC
+                </span>
+
+                <strong id="batterySOC">
+                    --
+                </strong>
+
+                <small>
+                    State of Charge
+                </small>
+
+            </div>
+
+        </div>
+
+    </div>
+
+</section>
+
+
+
+<!-- =========================================================
+     VEHICLE SENSOR DATA
+     ========================================================= -->
+
+<section>
+
+    <div class="section-title">
+
+        <div>
+
+            <h2>
+                Vehicle Sensors
+            </h2>
+
+            <p>
+                Prototype vehicle monitoring parameters.
+            </p>
+
+        </div>
+
+    </div>
+
+
+    <div class="card-grid">
+
+
+        <div class="metric-card">
+
+            <div class="metric-icon">
+                🚗
+            </div>
+
+            <div>
+
+                <span>
+                    GPS Speed
+                </span>
+
+                <strong id="gpsSpeed">
+                    --
+                </strong>
+
+            </div>
+
+        </div>
+
+
+
+        <div class="metric-card">
+
+            <div class="metric-icon">
+                🛞
+            </div>
+
+            <div>
+
+                <span>
+                    Tyre Pressure
+                </span>
+
+                <strong id="tyrePressure">
+                    --
+                </strong>
+
+            </div>
+
+        </div>
+
+
+
+        <div class="metric-card">
+
+            <div class="metric-icon">
+                🔋
+            </div>
+
+            <div>
+
+                <span>
+                    Load Power
+                </span>
+
+                <strong id="loadPower">
+                    --
+                </strong>
+
+            </div>
+
+        </div>
+
+
+
+        <div class="metric-card">
+
+            <div class="metric-icon">
+                🛣️
+            </div>
+
+            <div>
+
+                <span>
+                    Road Condition
+                </span>
+
+                <strong id="roadCondition">
+                    --
+                </strong>
+
+            </div>
+
+        </div>
+
+    </div>
+
+</section>
+
+
+
+<!-- =========================================================
+     PREDICTIVE ALERT
+     ========================================================= -->
+
+<section class="prediction-panel">
+
+    <div class="prediction-header">
+
+        <div>
+
+            <span class="eyebrow">
+                PREDICTIVE MONITORING
+            </span>
+
+            <h2>
+                Early Warning System
+            </h2>
+
+        </div>
+
+        <div class="prediction-icon">
+            🧠
+        </div>
+
+    </div>
+
+
+    <div
+        id="predictiveAlert"
+        class="prediction-message">
+
+        Battery condition is being analyzed...
+
+    </div>
+
+    <p class="prediction-note">
+
+        The system evaluates battery health,
+        electrical conditions and vehicle
+        sensor information to identify
+        abnormal conditions early.
+
+    </p>
+
+</section>
+
+
+
+<!-- =========================================================
+     LOAD CAPACITY
+     ========================================================= -->
+
+<section>
+
+    <div class="section-title">
+
+        <div>
+
+            <h2>
+                Load Capacity Analysis
+            </h2>
+
+            <p>
+                Determine whether the current
+                battery condition can safely
+                support the detected load.
+            </p>
+
+        </div>
+
+    </div>
+
+
+    <div class="load-panel">
+
+
+        <div class="load-status-box">
+
+            <span>
+                LOAD STATUS
+            </span>
+
+            <strong id="loadCapacityStatus">
+                ANALYZING
+            </strong>
+
+        </div>
+
+
+        <div class="load-recommendation">
+
+            <span>
+                RECOMMENDATION
+            </span>
+
+            <strong id="loadRecommendation">
+                Analyzing battery capacity...
+            </strong>
+
+        </div>
+
+    </div>
+
+</section>
+
+
+
+<!-- =========================================================
+     FAULT MONITORING
+     ========================================================= -->
+
+<section>
+
+    <div class="section-title">
+
+        <div>
+
+            <h2>
+                Fault Detection
+            </h2>
+
+            <p>
+                Current operating condition of
+                critical EV parameters.
+            </p>
+
+        </div>
+
+    </div>
+
+
+    <div class="fault-grid">
+
+
+        <div class="fault-card">
+
+            <span>
+                Battery Voltage
+            </span>
+
+            <strong id="voltageStatus">
+                --
+            </strong>
+
+        </div>
+
+
+
+        <div class="fault-card">
+
+            <span>
+                Battery Current
+            </span>
+
+            <strong id="currentStatus">
+                --
+            </strong>
+
+        </div>
+
+
+
+        <div class="fault-card">
+
+            <span>
+                Temperature
+            </span>
+
+            <strong id="temperatureStatus">
+                --
+            </strong>
+
+        </div>
+
+
+
+        <div class="fault-card">
+
+            <span>
+                Tyre Pressure
+            </span>
+
+            <strong id="tyrePressureStatus">
+                --
+            </strong>
+
+        </div>
+
+
+
+        <div class="fault-card">
+
+            <span>
+                Battery SOH
+            </span>
+
+            <strong id="sohStatus">
+                --
+            </strong>
+
+        </div>
+
+    </div>
+
+</section>
+
+
+
+<!-- =========================================================
+     GRAPHS
+     ========================================================= -->
+
+<section>
+
+    <div class="section-title">
+
+        <div>
+
+            <h2>
+                Battery Analytics
+            </h2>
+
+            <p>
+                Historical battery and power behaviour.
+            </p>
+
+        </div>
+
+    </div>
+
+
+    <div class="chart-grid">
+
+
+        <div class="chart-card">
+
+            <div class="chart-heading">
+
+                <h3>
+                    SOH Trend
+                </h3>
+
+                <span>
+                    Battery Health
+                </span>
+
+            </div>
+
+            <div class="chart-container">
+
+                <canvas id="sohChart">
+                </canvas>
+
+            </div>
+
+        </div>
+
+
+
+        <div class="chart-card">
+
+            <div class="chart-heading">
+
+                <h3>
+                    Battery Parameters
+                </h3>
+
+                <span>
+                    Voltage / Temperature
+                </span>
+
+            </div>
+
+            <div class="chart-container">
+
+                <canvas id="batteryChart">
+                </canvas>
+
+            </div>
+
+        </div>
+
+
+
+        <div class="chart-card chart-wide">
+
+            <div class="chart-heading">
+
+                <h3>
+                    Power Analysis
+                </h3>
+
+                <span>
+                    Battery vs Load
+                </span>
+
+            </div>
+
+            <div class="chart-container">
+
+                <canvas id="powerChart">
+                </canvas>
+
+            </div>
+
+        </div>
+
+    </div>
+
+</section>
+
+
+
+<!-- =========================================================
+     SERVICE CENTER NAVIGATOR
+     ========================================================= -->
+
+<section
+    id="serviceSection"
+    class="service-section hidden">
+
+
+    <div class="section-title">
+
+        <div>
+
+            <span class="eyebrow">
+                EV SERVICE NAVIGATOR
+            </span>
+
+            <h2>
+                Nearby Service Centers
+            </h2>
+
+            <p>
+                Find the nearest service center
+                using the vehicle's current GPS location.
+            </p>
+
+        </div>
+
+
+        <div class="navigator-badge">
+            GPS NAVIGATOR
+        </div>
+
+    </div>
+
+
+
+    <div class="navigator-status">
+
+
+        <div>
+
+            <span>
+                VEHICLE LOCATION
+            </span>
+
+            <strong id="navigatorLocation">
+                Waiting for GPS location...
+            </strong>
+
+        </div>
+
+
+        <div>
+
+            <span>
+                NAVIGATION
+            </span>
+
+            <strong>
+                DRIVING
+            </strong>
+
+        </div>
+
+    </div>
+
+
+
+    <div
+        id="serviceMap"
+        class="service-map">
+    </div>
+
+
+
+    <div
+        id="serviceList"
+        class="service-list">
+    </div>
+
+
+
+    <div class="navigator-actions">
+
+        <button
+            type="button"
+            class="primary-button"
+            onclick="useMyLocation()">
+
+            📍 USE MY LOCATION
+
+        </button>
+
+
+        <button
+            type="button"
+            class="secondary-button"
+            onclick="findServiceCenters()">
+
+            🔧 FIND SERVICE CENTERS
+
+        </button>
+
+    </div>
+
+
+</section>
+
+
+
+<!-- =========================================================
+     GLOBAL MESSAGE
+     ========================================================= -->
+
+<div
+    id="globalMessage"
+    class="global-message">
+</div>
+
+
+</main>
+
+
+
+<!-- =========================================================
+     FOOTER
+     ========================================================= -->
+
+<footer>
+
+    <p>
+        EV Digital Twin |
+        Battery SOH |
+        Fault Detection |
+        Predictive Monitoring |
+        Vehicle Navigation
+    </p>
+
+</footer>
+
+
+
+<!-- =========================================================
+     JAVASCRIPT LIBRARIES
+     ========================================================= -->
+
+
+<!-- Chart.js -->
+
+<script
+    src="https://cdn.jsdelivr.net/npm/chart.js">
+</script>
+
+
+<!-- Leaflet -->
+
+<script
+    src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js">
+</script>
+
+
+<!-- Project JavaScript -->
+
+<script
+    src="{{ url_for('static', filename='script.js') }}">
+</script>
+
+
+</body>
+
+</html>

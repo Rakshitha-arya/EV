@@ -1,0 +1,177 @@
+C:\Major project\datasets\CALCE
+C:\Major project\datasets\NASA
+C:\Major project\datasets\OXFORD
+C:\Major project\datasets\CALCE\CS2
+C:\Major project\datasets\CALCE\CS2\CS2_35
+C:\Major project\datasets\CALCE\CS2\CS2_36
+C:\Major project\datasets\CALCE\CS2\CS2_37
+C:\Major project\datasets\CALCE\CS2\CS2_38
+C:\Major project\datasets\CALCE\CS2\CS2_35\CS2_35_10_15_10.xlsx
+C:\Major project\datasets\CALCE\CS2\CS2_35\CS2_35_10_22_10.xlsx
+C:\Major project\datasets\CALCE\CS2\CS2_35\CS2_35_10_29_10.xlsx
+C:\Major project\datasets\CALCE\CS2\CS2_35\CS2_35_11_01_10.xlsx
+C:\Major project\datasets\CALCE\CS2\CS2_35\CS2_35_11_08_10.xlsx
+C:\Major project\datasets\CALCE\CS2\CS2_35\CS2_35_11_23_10.xlsx
+C:\Major project\datasets\CALCE\CS2\CS2_35\CS2_35_11_24_10.xlsx
+C:\Major project\datasets\CALCE\CS2\CS2_35\CS2_35_12_06_10.xlsx
+C:\Major project\datasets\CALCE\CS2\CS2_35\CS2_35_12_13_10.xlsx
+C:\Major project\datasets\CALCE\CS2\CS2_35\CS2_35_12_20_10.xlsx
+C:\Major project\datasets\CALCE\CS2\CS2_35\CS2_35_12_23_10.xlsx
+C:\Major project\datasets\CALCE\CS2\CS2_35\CS2_35_1_10_11.xlsx
+C:\Major project\datasets\CALCE\CS2\CS2_35\CS2_35_1_18_11.xlsx
+C:\Major project\datasets\CALCE\CS2\CS2_35\CS2_35_1_24_11.xlsx
+C:\Major project\datasets\CALCE\CS2\CS2_35\CS2_35_1_28_11.xlsx
+C:\Major project\datasets\CALCE\CS2\CS2_35\CS2_35_2_10_11.xlsx
+C:\Major project\datasets\CALCE\CS2\CS2_35\CS2_35_2_4_11.xlsx
+C:\Major project\datasets\CALCE\CS2\CS2_35\CS2_35_8_17_10.xlsx
+C:\Major project\datasets\CALCE\CS2\CS2_35\CS2_35_8_18_10.xlsx
+C:\Major project\datasets\CALCE\CS2\CS2_35\CS2_35_8_19_10.xlsx
+C:\Major project\datasets\CALCE\CS2\CS2_35\CS2_35_8_30_10.xlsx
+C:\Major project\datasets\CALCE\CS2\CS2_35\CS2_35_9_21_10.xlsx
+C:\Major project\datasets\CALCE\CS2\CS2_35\CS2_35_9_30_10.xlsx
+C:\Major project\datasets\CALCE\CS2\CS2_35\CS2_35_9_7_10.xlsx
+C:\Major project\datasets\CALCE\CS2\CS2_35\CS2_35_9_8_10.xlsx
+C:\Major project\datasets\CALCE\CS2\CS2_36\CS2_36_10_04_10.xlsx
+C:\Major project\datasets\CALCE\CS2\CS2_36\CS2_36_10_05_10.xlsx
+C:\Major project\datasets\CALCE\CS2\CS2_36\CS2_36_10_14_10.xlsx
+C:\Major project\datasets\CALCE\CS2\CS2_36\CS2_36_10_21_10.xlsx
+C:\Major project\datasets\CALCE\CS2\CS2_36\CS2_36_10_28_10.xlsx
+C:\Major project\datasets\CALCE\CS2\CS2_36\CS2_36_11_01_10.xlsx
+C:\Major project\datasets\CALCE\CS2\CS2_36\CS2_36_11_15_10.xlsx
+C:\Major project\datasets\CALCE\CS2\CS2_36\CS2_36_11_22_10.xlsx
+C:\Major project\datasets\CALCE\CS2\CS2_36\CS2_36_11_24_10.xlsx
+C:\Major project\datasets\CALCE\CS2\CS2_36\CS2_36_12_06_10.xlsx
+C:\Major project\datasets\CALCE\CS2\CS2_36\CS2_36_12_13_10.xlsx
+C:\Major project\datasets\CALCE\CS2\CS2_36\CS2_36_12_20_10.xlsx
+C:\Major project\datasets\CALCE\CS2\CS2_36\CS2_36_12_23_10.xlsx
+C:\Major project\datasets\CALCE\CS2\CS2_36\CS2_36_1_10_11.xlsx
+C:\Major project\datasets\CALCE\CS2\CS2_36\CS2_36_1_18_11.xlsx
+C:\Major project\datasets\CALCE\CS2\CS2_36\CS2_36_1_24_11.xlsx
+C:\Major project\datasets\CALCE\CS2\CS2_36\CS2_36_1_28_11.xlsx
+C:\Major project\datasets\CALCE\CS2\CS2_36\CS2_36_2_3_11.xlsx
+C:\Major project\datasets\CALCE\CS2\CS2_36\CS2_36_8_17_10.xlsx
+C:\Major project\datasets\CALCE\CS2\CS2_36\CS2_36_8_18_10.xlsx
+C:\Major project\datasets\CALCE\CS2\CS2_36\CS2_36_8_19_10.xlsx
+C:\Major project\datasets\CALCE\CS2\CS2_36\CS2_36_8_30_10.xlsx
+C:\Major project\datasets\CALCE\CS2\CS2_36\CS2_36_9_14_10.xlsx
+C:\Major project\datasets\CALCE\CS2\CS2_36\CS2_36_9_21_10.xlsx
+C:\Major project\datasets\CALCE\CS2\CS2_36\CS2_36_9_30_10.xlsx
+C:\Major project\datasets\CALCE\CS2\CS2_36\CS2_36_9_7_10.xlsx
+C:\Major project\datasets\CALCE\CS2\CS2_37\CS2_37_10_04_10.xlsx
+C:\Major project\datasets\CALCE\CS2\CS2_37\CS2_37_10_05_10.xlsx
+C:\Major project\datasets\CALCE\CS2\CS2_37\CS2_37_10_14_10.xlsx
+C:\Major project\datasets\CALCE\CS2\CS2_37\CS2_37_10_21_10.xlsx
+C:\Major project\datasets\CALCE\CS2\CS2_37\CS2_37_10_28_10.xlsx
+C:\Major project\datasets\CALCE\CS2\CS2_37\CS2_37_11_01_10.xlsx
+C:\Major project\datasets\CALCE\CS2\CS2_37\CS2_37_11_08_10.xlsx
+C:\Major project\datasets\CALCE\CS2\CS2_37\CS2_37_11_15_10.xlsx
+C:\Major project\datasets\CALCE\CS2\CS2_37\CS2_37_11_22_10.xlsx
+C:\Major project\datasets\CALCE\CS2\CS2_37\CS2_37_11_24_10.xlsx
+C:\Major project\datasets\CALCE\CS2\CS2_37\CS2_37_12_06_10.xlsx
+C:\Major project\datasets\CALCE\CS2\CS2_37\CS2_37_12_13_10.xlsx
+C:\Major project\datasets\CALCE\CS2\CS2_37\CS2_37_12_20_10.xlsx
+C:\Major project\datasets\CALCE\CS2\CS2_37\CS2_37_12_23_10.xlsx
+C:\Major project\datasets\CALCE\CS2\CS2_37\CS2_37_1_10_11.xlsx
+C:\Major project\datasets\CALCE\CS2\CS2_37\CS2_37_1_18_11.xlsx
+C:\Major project\datasets\CALCE\CS2\CS2_37\CS2_37_1_24_11.xlsx
+C:\Major project\datasets\CALCE\CS2\CS2_37\CS2_37_1_28_11.xlsx
+C:\Major project\datasets\CALCE\CS2\CS2_37\CS2_37_2_3_11.xlsx
+C:\Major project\datasets\CALCE\CS2\CS2_37\CS2_37_8_17_10.xlsx
+C:\Major project\datasets\CALCE\CS2\CS2_37\CS2_37_8_18_10.xlsx
+C:\Major project\datasets\CALCE\CS2\CS2_37\CS2_37_8_19_10.xlsx
+C:\Major project\datasets\CALCE\CS2\CS2_37\CS2_37_8_30_10.xlsx
+C:\Major project\datasets\CALCE\CS2\CS2_37\CS2_37_9_14_10.xlsx
+C:\Major project\datasets\CALCE\CS2\CS2_37\CS2_37_9_21_10.xlsx
+C:\Major project\datasets\CALCE\CS2\CS2_37\CS2_37_9_28_10.xlsx
+C:\Major project\datasets\CALCE\CS2\CS2_37\CS2_37_9_7_10.xlsx
+C:\Major project\datasets\CALCE\CS2\CS2_38\CS2_38_10_04_10.xlsx
+C:\Major project\datasets\CALCE\CS2\CS2_38\CS2_38_10_05_10.xlsx
+C:\Major project\datasets\CALCE\CS2\CS2_38\CS2_38_10_14_10.xlsx
+C:\Major project\datasets\CALCE\CS2\CS2_38\CS2_38_10_21_10.xlsx
+C:\Major project\datasets\CALCE\CS2\CS2_38\CS2_38_10_28_10.xlsx
+C:\Major project\datasets\CALCE\CS2\CS2_38\CS2_38_11_01_10.xlsx
+C:\Major project\datasets\CALCE\CS2\CS2_38\CS2_38_11_08_10.xlsx
+C:\Major project\datasets\CALCE\CS2\CS2_38\CS2_38_11_15_10.xlsx
+C:\Major project\datasets\CALCE\CS2\CS2_38\CS2_38_11_22_10.xlsx
+C:\Major project\datasets\CALCE\CS2\CS2_38\CS2_38_11_24_10.xlsx
+C:\Major project\datasets\CALCE\CS2\CS2_38\CS2_38_12_06_10.xlsx
+C:\Major project\datasets\CALCE\CS2\CS2_38\CS2_38_12_13_10.xlsx
+C:\Major project\datasets\CALCE\CS2\CS2_38\CS2_38_12_20_10.xlsx
+C:\Major project\datasets\CALCE\CS2\CS2_38\CS2_38_12_23_10.xlsx
+C:\Major project\datasets\CALCE\CS2\CS2_38\CS2_38_1_10_11.xlsx
+C:\Major project\datasets\CALCE\CS2\CS2_38\CS2_38_1_18_11.xlsx
+C:\Major project\datasets\CALCE\CS2\CS2_38\CS2_38_1_24_11.xlsx
+C:\Major project\datasets\CALCE\CS2\CS2_38\CS2_38_1_28_11.xlsx
+C:\Major project\datasets\CALCE\CS2\CS2_38\CS2_38_2_10_11.xlsx
+C:\Major project\datasets\CALCE\CS2\CS2_38\CS2_38_2_4_11.xlsx
+C:\Major project\datasets\CALCE\CS2\CS2_38\CS2_38_8_17_10.xlsx
+C:\Major project\datasets\CALCE\CS2\CS2_38\CS2_38_8_18_10.xlsx
+C:\Major project\datasets\CALCE\CS2\CS2_38\CS2_38_8_19_10.xlsx
+C:\Major project\datasets\CALCE\CS2\CS2_38\CS2_38_8_30_10.xlsx
+C:\Major project\datasets\CALCE\CS2\CS2_38\CS2_38_9_14_10.xlsx
+C:\Major project\datasets\CALCE\CS2\CS2_38\CS2_38_9_21_10.xlsx
+C:\Major project\datasets\CALCE\CS2\CS2_38\CS2_38_9_28_10.xlsx
+C:\Major project\datasets\CALCE\CS2\CS2_38\CS2_38_9_7_10.xlsx
+C:\Major project\datasets\NASA\1. BatteryAgingARC-FY08Q4.zip
+C:\Major project\datasets\NASA\2. BatteryAgingARC_25_26_27_28_P1.zip
+C:\Major project\datasets\NASA\3. BatteryAgingARC_25-44.zip
+C:\Major project\datasets\NASA\4. BatteryAgingARC_45_46_47_48.zip
+C:\Major project\datasets\NASA\5. BatteryAgingARC_49_50_51_52.zip
+C:\Major project\datasets\NASA\6. BatteryAgingARC_53_54_55_56.zip
+C:\Major project\datasets\NASA\extracted
+C:\Major project\datasets\NASA\extracted\1. BatteryAgingARC-FY08Q4
+C:\Major project\datasets\NASA\extracted\2. BatteryAgingARC_25_26_27_28_P1
+C:\Major project\datasets\NASA\extracted\3. BatteryAgingARC_25-44
+C:\Major project\datasets\NASA\extracted\4. BatteryAgingARC_45_46_47_48
+C:\Major project\datasets\NASA\extracted\5. BatteryAgingARC_49_50_51_52
+C:\Major project\datasets\NASA\extracted\6. BatteryAgingARC_53_54_55_56
+C:\Major project\datasets\NASA\extracted\1. BatteryAgingARC-FY08Q4\B0005.mat
+C:\Major project\datasets\NASA\extracted\1. BatteryAgingARC-FY08Q4\B0006.mat
+C:\Major project\datasets\NASA\extracted\1. BatteryAgingARC-FY08Q4\B0007.mat
+C:\Major project\datasets\NASA\extracted\1. BatteryAgingARC-FY08Q4\B0018.mat
+C:\Major project\datasets\NASA\extracted\1. BatteryAgingARC-FY08Q4\README.txt
+C:\Major project\datasets\NASA\extracted\2. BatteryAgingARC_25_26_27_28_P1\B0025.mat
+C:\Major project\datasets\NASA\extracted\2. BatteryAgingARC_25_26_27_28_P1\B0026.mat
+C:\Major project\datasets\NASA\extracted\2. BatteryAgingARC_25_26_27_28_P1\B0027.mat
+C:\Major project\datasets\NASA\extracted\2. BatteryAgingARC_25_26_27_28_P1\B0028.mat
+C:\Major project\datasets\NASA\extracted\2. BatteryAgingARC_25_26_27_28_P1\README.txt
+C:\Major project\datasets\NASA\extracted\3. BatteryAgingARC_25-44\B0025.mat
+C:\Major project\datasets\NASA\extracted\3. BatteryAgingARC_25-44\B0026.mat
+C:\Major project\datasets\NASA\extracted\3. BatteryAgingARC_25-44\B0027.mat
+C:\Major project\datasets\NASA\extracted\3. BatteryAgingARC_25-44\B0028.mat
+C:\Major project\datasets\NASA\extracted\3. BatteryAgingARC_25-44\B0029.mat
+C:\Major project\datasets\NASA\extracted\3. BatteryAgingARC_25-44\B0030.mat
+C:\Major project\datasets\NASA\extracted\3. BatteryAgingARC_25-44\B0031.mat
+C:\Major project\datasets\NASA\extracted\3. BatteryAgingARC_25-44\B0032.mat
+C:\Major project\datasets\NASA\extracted\3. BatteryAgingARC_25-44\B0033.mat
+C:\Major project\datasets\NASA\extracted\3. BatteryAgingARC_25-44\B0034.mat
+C:\Major project\datasets\NASA\extracted\3. BatteryAgingARC_25-44\B0036.mat
+C:\Major project\datasets\NASA\extracted\3. BatteryAgingARC_25-44\B0038.mat
+C:\Major project\datasets\NASA\extracted\3. BatteryAgingARC_25-44\B0039.mat
+C:\Major project\datasets\NASA\extracted\3. BatteryAgingARC_25-44\B0040.mat
+C:\Major project\datasets\NASA\extracted\3. BatteryAgingARC_25-44\B0041.mat
+C:\Major project\datasets\NASA\extracted\3. BatteryAgingARC_25-44\B0042.mat
+C:\Major project\datasets\NASA\extracted\3. BatteryAgingARC_25-44\B0043.mat
+C:\Major project\datasets\NASA\extracted\3. BatteryAgingARC_25-44\B0044.mat
+C:\Major project\datasets\NASA\extracted\3. BatteryAgingARC_25-44\README_25_26_27_28.txt
+C:\Major project\datasets\NASA\extracted\3. BatteryAgingARC_25-44\README_29_30_31_32.txt
+C:\Major project\datasets\NASA\extracted\3. BatteryAgingARC_25-44\README_33_34_36.txt
+C:\Major project\datasets\NASA\extracted\3. BatteryAgingARC_25-44\README_38_39_40.txt
+C:\Major project\datasets\NASA\extracted\3. BatteryAgingARC_25-44\README_41_42_43_44.txt
+C:\Major project\datasets\NASA\extracted\4. BatteryAgingARC_45_46_47_48\B0045.mat
+C:\Major project\datasets\NASA\extracted\4. BatteryAgingARC_45_46_47_48\B0046.mat
+C:\Major project\datasets\NASA\extracted\4. BatteryAgingARC_45_46_47_48\B0047.mat
+C:\Major project\datasets\NASA\extracted\4. BatteryAgingARC_45_46_47_48\B0048.mat
+C:\Major project\datasets\NASA\extracted\4. BatteryAgingARC_45_46_47_48\README_45_46_47_48.txt
+C:\Major project\datasets\NASA\extracted\5. BatteryAgingARC_49_50_51_52\B0049.mat
+C:\Major project\datasets\NASA\extracted\5. BatteryAgingARC_49_50_51_52\B0050.mat
+C:\Major project\datasets\NASA\extracted\5. BatteryAgingARC_49_50_51_52\B0051.mat
+C:\Major project\datasets\NASA\extracted\5. BatteryAgingARC_49_50_51_52\B0052.mat
+C:\Major project\datasets\NASA\extracted\5. BatteryAgingARC_49_50_51_52\README_49_50_51_52.txt
+C:\Major project\datasets\NASA\extracted\6. BatteryAgingARC_53_54_55_56\B0053.mat
+C:\Major project\datasets\NASA\extracted\6. BatteryAgingARC_53_54_55_56\B0054.mat
+C:\Major project\datasets\NASA\extracted\6. BatteryAgingARC_53_54_55_56\B0055.mat
+C:\Major project\datasets\NASA\extracted\6. BatteryAgingARC_53_54_55_56\B0056.mat
+C:\Major project\datasets\NASA\extracted\6. BatteryAgingARC_53_54_55_56\README_53_54_55_56.txt
+C:\Major project\datasets\OXFORD\Oxford_Battery_Degradation_Dataset_1.mat
+C:\Major project\datasets\OXFORD\Readme.txt

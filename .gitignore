@@ -18,4 +18,5 @@ env/
 # Logs
 *.log
 processed/*.csv
+processed/**/*.csvprocessed/*.csv
 processed/**/*.csv

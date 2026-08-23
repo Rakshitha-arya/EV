@@ -1,0 +1,13 @@
+Dataset
+Battery_ID
+Cycle
+Capacity_Ah
+SOH_percent
+Avg_Voltage_V
+Min_Voltage_V
+Max_Voltage_V
+Avg_Current_A
+Min_Current_A
+Max_Current_A
+Energy_Wh
+Internal_Resistance_Ohm

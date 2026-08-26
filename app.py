@@ -1,1317 +1,1107 @@
-from flask import Flask, render_template
-from pathlib import Path
-import pandas as pd
+import json
 import math
-import traceback
+import pickle
+from pathlib import Path
 
-
-# ============================================================
-# EV DIGITAL TWIN
-# STEP 38 - COMPLETE FLASK BACKEND + API
-# ============================================================
-
-app = Flask(__name__)
+import numpy as np
+import pandas as pd
+from flask import Flask, jsonify, request, render_template
 
 
 # ============================================================
 # PROJECT PATHS
 # ============================================================
 
-BASE_DIR = Path(__file__).resolve().parent.parent
+BASE_DIR = Path(__file__).resolve().parent
 
-PROCESSED_DIR = BASE_DIR / "processed"
-RESULTS_DIR = BASE_DIR / "results"
+MODEL_DIR = BASE_DIR / "processed" / "soh" / "models"
 
-
-# ============================================================
-# DATA FILES
-# ============================================================
-
-SOH_FILE = PROCESSED_DIR / "NASA_digital_twin_SOH.csv"
-
-PROTOTYPE_FILE = PROCESSED_DIR / "EV_prototype_sensor_data.csv"
-
-PROTOTYPE_TWIN_FILE = (
-    PROCESSED_DIR / "EV_prototype_digital_twin.csv"
-)
-
-INTEGRATED_FILE = (
-    PROCESSED_DIR / "EV_integrated_digital_twin.csv"
-)
-
-FAULT_FILE = (
-    PROCESSED_DIR / "EV_fault_detection_results.csv"
-)
-
-FAULT_INJECTION_FILE = (
-    PROCESSED_DIR / "EV_fault_injection_results.csv"
-)
-
-LIVE_FILE = (
-    PROCESSED_DIR / "EV_live_digital_twin.csv"
-)
-
-SOH_PREDICTION_FILE = (
-    PROCESSED_DIR / "NASA_final_SOH_predictions.csv"
-)
+MODEL_PATH = MODEL_DIR / "best_soh_model.pkl"
+FEATURE_PATH = MODEL_DIR / "feature_columns.json"
+METADATA_PATH = MODEL_DIR / "model_metadata.json"
 
 
 # ============================================================
-# HELPER FUNCTIONS
+# FLASK APPLICATION
 # ============================================================
 
-def safe_float(value, default=None):
-
-    try:
-
-        if value is None:
-            return default
-
-        if pd.isna(value):
-            return default
-
-        return float(value)
-
-    except Exception:
-
-        return default
+app = Flask(__name__)
 
 
-def safe_int(value, default=None):
+# ============================================================
+# GLOBAL MODEL OBJECTS
+# ============================================================
 
-    try:
-
-        if value is None:
-            return default
-
-        if pd.isna(value):
-            return default
-
-        return int(value)
-
-    except Exception:
-
-        return default
+MODEL = None
+FEATURE_COLUMNS = None
+MODEL_METADATA = None
 
 
-def clean_value(value):
+# ============================================================
+# LOAD MODEL
+# ============================================================
+
+def load_model():
+
+    global MODEL
+    global FEATURE_COLUMNS
+    global MODEL_METADATA
+
+    print("=" * 70)
+    print("EV DIGITAL TWIN - SOH FLASK API")
+    print("=" * 70)
+
+    print("\nLoading SOH model...")
+
+    if not MODEL_PATH.exists():
+        raise FileNotFoundError(
+            f"SOH model not found:\n{MODEL_PATH}"
+        )
+
+    with open(MODEL_PATH, "rb") as f:
+        MODEL = pickle.load(f)
+
+    print(f"Model loaded: {type(MODEL).__name__}")
+
+    print("\nLoading feature metadata...")
+
+    if not FEATURE_PATH.exists():
+        raise FileNotFoundError(
+            f"Feature metadata not found:\n{FEATURE_PATH}"
+        )
+
+    with open(FEATURE_PATH, "r", encoding="utf-8") as f:
+        metadata = json.load(f)
+
+    # Support either a direct list or a dictionary containing feature columns.
+    if isinstance(metadata, list):
+        FEATURE_COLUMNS = metadata
+
+    elif isinstance(metadata, dict):
+
+        if "feature_columns" in metadata:
+            FEATURE_COLUMNS = metadata["feature_columns"]
+
+        elif "features" in metadata:
+            FEATURE_COLUMNS = metadata["features"]
+
+        elif "columns" in metadata:
+            FEATURE_COLUMNS = metadata["columns"]
+
+        else:
+            raise ValueError(
+                "Could not find feature columns in feature_columns.json"
+            )
+
+    else:
+        raise ValueError(
+            "Invalid feature_columns.json format"
+        )
+
+    print(f"Feature columns loaded: {len(FEATURE_COLUMNS)}")
+
+    print("\nLoading model metadata...")
+
+    if METADATA_PATH.exists():
+
+        with open(METADATA_PATH, "r", encoding="utf-8") as f:
+            MODEL_METADATA = json.load(f)
+
+        print("Model metadata loaded.")
+
+    else:
+
+        MODEL_METADATA = {}
+
+        print("[WARNING] Model metadata not found.")
+
+
+# ============================================================
+# NUMERIC CONVERSION
+# ============================================================
+
+def to_float(value, field_name, required=True):
 
     if value is None:
-        return None
 
-    if isinstance(value, float):
+        if required:
+            raise ValueError(
+                f"Missing required field: {field_name}"
+            )
 
-        if math.isnan(value) or math.isinf(value):
-            return None
-
-        return round(value, 4)
-
-    if isinstance(value, int):
-        return value
+        return np.nan
 
     try:
 
-        if pd.isna(value):
-            return None
+        number = float(value)
 
-    except Exception:
-        pass
+    except (TypeError, ValueError):
 
-    return value
-
-
-def load_csv(file_path):
-
-    try:
-
-        if not file_path.exists():
-
-            print(
-                f"[WARNING] File not found: {file_path}"
-            )
-
-            return pd.DataFrame()
-
-        df = pd.read_csv(file_path)
-
-        print(
-            f"[OK] Loaded {file_path.name} "
-            f"({len(df)} rows, {len(df.columns)} columns)"
+        raise ValueError(
+            f"Invalid numeric value for {field_name}: {value}"
         )
 
-        return df
+    if not math.isfinite(number):
 
-    except Exception as error:
-
-        print(
-            f"[ERROR] Could not load "
-            f"{file_path.name}: {error}"
+        raise ValueError(
+            f"Non-finite numeric value for {field_name}"
         )
 
-        return pd.DataFrame()
-
-
-def find_column(df, possible_names):
-
-    if df is None or df.empty:
-        return None
-
-    # Exact matching
-    normalized = {}
-
-    for column in df.columns:
-
-        key = str(column).strip().lower()
-
-        normalized[key] = column
-
-    for name in possible_names:
-
-        key = name.strip().lower()
-
-        if key in normalized:
-
-            return normalized[key]
-
-    # Partial matching
-    for column in df.columns:
-
-        column_lower = (
-            str(column).strip().lower()
-        )
-
-        for name in possible_names:
-
-            name_lower = (
-                name.strip().lower()
-            )
-
-            if name_lower in column_lower:
-
-                return column
-
-    return None
-
-
-def latest_record(df):
-
-    if df is None or df.empty:
-
-        return {}
-
-    return df.iloc[-1].to_dict()
-
-
-def dataframe_to_records(df, limit=100):
-
-    if df is None or df.empty:
-
-        return []
-
-    data = df.tail(limit).copy()
-
-    records = []
-
-    for _, row in data.iterrows():
-
-        record = {}
-
-        for column in data.columns:
-
-            record[str(column)] = clean_value(
-                row[column]
-            )
-
-        records.append(record)
-
-    return records
+    return number
 
 
 # ============================================================
-# LOAD ALL PROJECT DATA
+# CREATE MODEL FEATURES
 # ============================================================
 
-def load_project_data():
+def create_features(data):
 
-    return {
+    df = pd.DataFrame([data])
 
-        "soh": load_csv(SOH_FILE),
+    # --------------------------------------------------------
+    # Required basic fields
+    # --------------------------------------------------------
 
-        "prototype": load_csv(PROTOTYPE_FILE),
+    df["Cycle"] = pd.to_numeric(
+        df["Cycle"],
+        errors="coerce"
+    )
 
-        "prototype_twin": load_csv(
-            PROTOTYPE_TWIN_FILE
-        ),
+    df["Capacity_Ah"] = pd.to_numeric(
+        df["Capacity_Ah"],
+        errors="coerce"
+    )
 
-        "integrated": load_csv(
-            INTEGRATED_FILE
-        ),
+    # --------------------------------------------------------
+    # Validate
+    # --------------------------------------------------------
 
-        "fault": load_csv(
-            FAULT_FILE
-        ),
+    if df["Cycle"].isna().any():
+        raise ValueError("Cycle must be numeric.")
 
-        "fault_injection": load_csv(
-            FAULT_INJECTION_FILE
-        ),
+    if df["Capacity_Ah"].isna().any():
+        raise ValueError("Capacity_Ah must be numeric.")
 
-        "live": load_csv(
-            LIVE_FILE
-        ),
+    if (df["Cycle"] < 0).any():
+        raise ValueError("Cycle cannot be negative.")
 
-        "soh_prediction": load_csv(
-            SOH_PREDICTION_FILE
+    if (df["Capacity_Ah"] <= 0).any():
+        raise ValueError("Capacity_Ah must be greater than zero.")
+
+    # --------------------------------------------------------
+    # Cycle normalized
+    #
+    # Since this is a single inference record, use the
+    # supplied cycle directly. The trained model already
+    # contains the preprocessing pipeline.
+    # --------------------------------------------------------
+
+    df["Cycle_Normalized"] = df["Cycle"]
+
+    # --------------------------------------------------------
+    # Capacity ratio
+    #
+    # Capacity ratio needs a reference capacity.
+    #
+    # For API inference we use the initial nominal capacity
+    # supplied by the caller when available.
+    # --------------------------------------------------------
+
+    initial_capacity = data.get("Initial_Capacity_Ah")
+
+    if initial_capacity is not None:
+
+        initial_capacity = to_float(
+            initial_capacity,
+            "Initial_Capacity_Ah"
         )
 
+        if initial_capacity <= 0:
+            raise ValueError(
+                "Initial_Capacity_Ah must be greater than zero."
+            )
+
+        df["Capacity_Ratio"] = (
+            df["Capacity_Ah"] / initial_capacity
+        )
+
+    else:
+
+        # If no reference capacity is supplied, use 1.0.
+        #
+        # This keeps the API usable, but for production
+        # inference the initial/nominal capacity should be
+        # supplied whenever possible.
+        df["Capacity_Ratio"] = 1.0
+
+    # --------------------------------------------------------
+    # Voltage range
+    # --------------------------------------------------------
+
+    if (
+        "Voltage_Min_V" in df.columns
+        and "Voltage_Max_V" in df.columns
+    ):
+
+        df["Voltage_Range_V"] = (
+            df["Voltage_Max_V"] -
+            df["Voltage_Min_V"]
+        )
+
+    else:
+
+        df["Voltage_Range_V"] = np.nan
+
+    # --------------------------------------------------------
+    # Current range
+    # --------------------------------------------------------
+
+    if (
+        "Current_Min_A" in df.columns
+        and "Current_Max_A" in df.columns
+    ):
+
+        df["Current_Range_A"] = (
+            df["Current_Max_A"] -
+            df["Current_Min_A"]
+        )
+
+    else:
+
+        df["Current_Range_A"] = np.nan
+
+    # --------------------------------------------------------
+    # Temperature range
+    # --------------------------------------------------------
+
+    if (
+        "Temperature_Min_C" in df.columns
+        and "Temperature_Max_C" in df.columns
+    ):
+
+        df["Temperature_Range_C"] = (
+            df["Temperature_Max_C"] -
+            df["Temperature_Min_C"]
+        )
+
+    else:
+
+        df["Temperature_Range_C"] = np.nan
+
+    # --------------------------------------------------------
+    # Ensure Source_Dataset exists
+    # --------------------------------------------------------
+
+    if "Source_Dataset" not in df.columns:
+
+        df["Source_Dataset"] = "NASA"
+
+    df["Source_Dataset"] = (
+        df["Source_Dataset"]
+        .astype(str)
+        .str.strip()
+    )
+
+    allowed_datasets = {
+        "NASA",
+        "Oxford",
+        "CALCE"
     }
 
-
-# ============================================================
-# BATTERY DATA
-# ============================================================
-
-def get_battery_data(data):
-
-    integrated = data["integrated"]
-
-    prototype = data["prototype"]
-
-    twin = data["prototype_twin"]
-
-    soh_df = data["soh"]
-
-    # --------------------------------------------------------
-    # Select latest record
-    # --------------------------------------------------------
-
-    latest = latest_record(integrated)
-
-    if not latest:
-
-        latest = latest_record(twin)
-
-    if not latest:
-
-        latest = latest_record(prototype)
-
-    # --------------------------------------------------------
-    # SOH
-    # --------------------------------------------------------
-
-    soh_column = find_column(
-        soh_df,
-        [
-            "predicted_SOH_percent",
-            "Predicted_SOH_percent",
-            "SOH_percent",
-            "SOH",
-            "soh"
-        ]
-    )
-
-    soh = None
-
-    if soh_column and not soh_df.empty:
-
-        soh = safe_float(
-            soh_df.iloc[-1][soh_column]
-        )
-
-    # Try integrated data if necessary
-    if soh is None:
-
-        soh_column_integrated = find_column(
-            integrated,
-            [
-                "predicted_SOH_percent",
-                "Predicted_SOH_percent",
-                "SOH_percent",
-                "SOH",
-                "soh"
-            ]
-        )
-
-        if (
-            soh_column_integrated
-            and not integrated.empty
-        ):
-
-            soh = safe_float(
-                integrated.iloc[-1][
-                    soh_column_integrated
-                ]
-            )
-
-    # Try latest record
-    if soh is None:
-
-        for key in [
-            "predicted_SOH_percent",
-            "Predicted_SOH_percent",
-            "SOH_percent",
-            "SOH",
-            "soh"
-        ]:
-
-            if key in latest:
-
-                soh = safe_float(
-                    latest[key]
-                )
-
-                if soh is not None:
-                    break
-
-    # --------------------------------------------------------
-    # VOLTAGE
-    # --------------------------------------------------------
-
-    voltage_column = find_column(
-        integrated,
-        [
-            "battery_voltage_V",
-            "battery_voltage",
-            "voltage_V",
-            "voltage"
-        ]
-    )
-
-    voltage = None
-
-    if (
-        voltage_column
-        and not integrated.empty
-    ):
-
-        voltage = safe_float(
-            integrated.iloc[-1][
-                voltage_column
-            ]
-        )
-
-    # Try latest record
-    if voltage is None:
-
-        for key in [
-            "battery_voltage_V",
-            "battery_voltage",
-            "voltage_V",
-            "voltage"
-        ]:
-
-            if key in latest:
-
-                voltage = safe_float(
-                    latest[key]
-                )
-
-                if voltage is not None:
-                    break
-
-    # --------------------------------------------------------
-    # CURRENT
-    # --------------------------------------------------------
-
-    current_column = find_column(
-        integrated,
-        [
-            "battery_current_A",
-            "battery_current",
-            "current_A",
-            "current"
-        ]
-    )
-
-    current = None
-
-    if (
-        current_column
-        and not integrated.empty
-    ):
-
-        current = safe_float(
-            integrated.iloc[-1][
-                current_column
-            ]
-        )
-
-    if current is None:
-
-        for key in [
-            "battery_current_A",
-            "battery_current",
-            "current_A",
-            "current"
-        ]:
-
-            if key in latest:
-
-                current = safe_float(
-                    latest[key]
-                )
-
-                if current is not None:
-                    break
-
-    # --------------------------------------------------------
-    # TEMPERATURE
-    # --------------------------------------------------------
-
-    temperature_column = find_column(
-        integrated,
-        [
-            "battery_temperature_C",
-            "battery_temperature",
-            "temperature_C",
-            "temperature"
-        ]
-    )
-
-    temperature = None
-
-    if (
-        temperature_column
-        and not integrated.empty
-    ):
-
-        temperature = safe_float(
-            integrated.iloc[-1][
-                temperature_column
-            ]
-        )
-
-    if temperature is None:
-
-        for key in [
-            "battery_temperature_C",
-            "battery_temperature",
-            "temperature_C",
-            "temperature"
-        ]:
-
-            if key in latest:
-
-                temperature = safe_float(
-                    latest[key]
-                )
-
-                if temperature is not None:
-                    break
-
-    # --------------------------------------------------------
-    # POWER
-    # --------------------------------------------------------
-
-    power = None
-
-    if (
-        voltage is not None
-        and current is not None
-    ):
-
-        power = voltage * current
-
-    # --------------------------------------------------------
-    # CYCLE
-    # --------------------------------------------------------
-
-    cycle_column = find_column(
-        soh_df,
-        [
-            "cycle",
-            "Cycle",
-            "cycle_index"
-        ]
-    )
-
-    cycle = None
-
-    if (
-        cycle_column
-        and not soh_df.empty
-    ):
-
-        cycle = safe_int(
-            soh_df.iloc[-1][
-                cycle_column
-            ]
+    if df["Source_Dataset"].iloc[0] not in allowed_datasets:
+
+        raise ValueError(
+            "Source_Dataset must be one of: "
+            "NASA, Oxford, CALCE"
         )
 
     # --------------------------------------------------------
-    # SOC
+    # Ensure every trained feature exists
     # --------------------------------------------------------
-    #
-    # SOC is intentionally left as None for now because
-    # Step 41 will implement the actual SOC calculation.
-    #
-    # We should NOT invent an SOC value.
-    #
 
-    soc = None
+    for feature in FEATURE_COLUMNS:
 
-    return {
+        if feature not in df.columns:
 
-        "soh": clean_value(soh),
+            if feature == "Source_Dataset":
 
-        "soc": clean_value(soc),
+                df[feature] = "NASA"
 
-        "voltage": clean_value(voltage),
+            else:
 
-        "current": clean_value(current),
+                df[feature] = np.nan
 
-        "temperature": clean_value(
-            temperature
-        ),
+    # --------------------------------------------------------
+    # Correct feature order
+    # --------------------------------------------------------
 
-        "power": clean_value(power),
+    X = df[FEATURE_COLUMNS].copy()
 
-        "cycle": cycle
-
-    }
+    return X
 
 
 # ============================================================
-# VEHICLE DATA
+# STATUS CLASSIFICATION
 # ============================================================
 
-def get_vehicle_data(data):
+def classify_soh(soh):
 
-    integrated = data["integrated"]
-
-    prototype = data["prototype"]
-
-    latest = latest_record(integrated)
-
-    if not latest:
-
-        latest = latest_record(prototype)
-
-    # --------------------------------------------------------
-    # GPS SPEED
-    # --------------------------------------------------------
-
-    speed_column = find_column(
-        integrated,
-        [
-            "gps_speed_kmph",
-            "gps_speed",
-            "speed_kmph",
-            "speed"
-        ]
-    )
-
-    speed = None
-
-    if (
-        speed_column
-        and not integrated.empty
-    ):
-
-        speed = safe_float(
-            integrated.iloc[-1][
-                speed_column
-            ]
-        )
-
-    if speed is None:
-
-        for key in [
-            "gps_speed_kmph",
-            "gps_speed",
-            "speed_kmph",
-            "speed"
-        ]:
-
-            if key in latest:
-
-                speed = safe_float(
-                    latest[key]
-                )
-
-                if speed is not None:
-                    break
-
-    # --------------------------------------------------------
-    # TYRE PRESSURE
-    # --------------------------------------------------------
-
-    pressure_column = find_column(
-        integrated,
-        [
-            "tyre_pressure_psi",
-            "tyre_pressure",
-            "tire_pressure_psi",
-            "tire_pressure",
-            "pressure"
-        ]
-    )
-
-    pressure = None
-
-    if (
-        pressure_column
-        and not integrated.empty
-    ):
-
-        pressure = safe_float(
-            integrated.iloc[-1][
-                pressure_column
-            ]
-        )
-
-    if pressure is None:
-
-        for key in [
-            "tyre_pressure_psi",
-            "tyre_pressure",
-            "tire_pressure_psi",
-            "tire_pressure",
-            "pressure"
-        ]:
-
-            if key in latest:
-
-                pressure = safe_float(
-                    latest[key]
-                )
-
-                if pressure is not None:
-                    break
-
-    # --------------------------------------------------------
-    # LATITUDE
-    # --------------------------------------------------------
-
-    latitude_column = find_column(
-        integrated,
-        [
-            "latitude",
-            "lat",
-            "gps_latitude"
-        ]
-    )
-
-    latitude = None
-
-    if (
-        latitude_column
-        and not integrated.empty
-    ):
-
-        latitude = safe_float(
-            integrated.iloc[-1][
-                latitude_column
-            ]
-        )
-
-    # --------------------------------------------------------
-    # LONGITUDE
-    # --------------------------------------------------------
-
-    longitude_column = find_column(
-        integrated,
-        [
-            "longitude",
-            "lon",
-            "lng",
-            "gps_longitude"
-        ]
-    )
-
-    longitude = None
-
-    if (
-        longitude_column
-        and not integrated.empty
-    ):
-
-        longitude = safe_float(
-            integrated.iloc[-1][
-                longitude_column
-            ]
-        )
-
-    return {
-
-        "speed": clean_value(speed),
-
-        "tyre_pressure": clean_value(
-            pressure
-        ),
-
-        "latitude": clean_value(
-            latitude
-        ),
-
-        "longitude": clean_value(
-            longitude
-        )
-
-    }
-
-
-# ============================================================
-# FAULT DATA
-# ============================================================
-
-def get_fault_data(data):
-
-    fault_df = data["fault"]
-
-    latest = latest_record(fault_df)
-
-    # --------------------------------------------------------
-    # No fault data
-    # --------------------------------------------------------
-
-    if not latest:
+    if soh >= 90:
 
         return {
+            "status": "Excellent",
+            "condition": "Healthy",
+            "severity": "normal"
+        }
 
-            "voltage": "NORMAL",
+    elif soh >= 80:
 
-            "current": "NORMAL",
+        return {
+            "status": "Good",
+            "condition": "Healthy",
+            "severity": "normal"
+        }
 
-            "temperature": "NORMAL",
+    elif soh >= 70:
 
-            "tyre_pressure": "NORMAL",
+        return {
+            "status": "Moderate",
+            "condition": "Aging",
+            "severity": "warning"
+        }
 
-            "soh": "NORMAL",
+    elif soh >= 60:
 
-            "vehicle": "HEALTHY"
+        return {
+            "status": "Poor",
+            "condition": "Degraded",
+            "severity": "warning"
+        }
+
+    else:
+
+        return {
+            "status": "Critical",
+            "condition": "Replace / Service",
+            "severity": "critical"
+        }
+
+
+# ============================================================
+# API HEALTH CHECK
+# ============================================================
+
+@app.route("/api/health", methods=["GET"])
+def health():
+
+    return jsonify({
+        "success": True,
+        "service": "SOH Prediction API",
+        "model_loaded": MODEL is not None,
+        "model_type": (
+            type(MODEL).__name__
+            if MODEL is not None
+            else None
+        ),
+        "features": len(FEATURE_COLUMNS)
+        if FEATURE_COLUMNS is not None
+        else 0
+    })
+
+
+# ============================================================
+# MODEL INFORMATION
+# ============================================================
+
+@app.route("/api/model-info", methods=["GET"])
+def model_info():
+
+    return jsonify({
+        "success": True,
+        "model": MODEL_METADATA,
+        "feature_count": len(FEATURE_COLUMNS),
+        "feature_columns": FEATURE_COLUMNS
+    })
+
+
+# ============================================================
+# SOH PREDICTION API
+# ============================================================
+
+@app.route("/api/predict-soh", methods=["POST"])
+def predict_soh():
+
+    try:
+
+        # ----------------------------------------------------
+        # Read JSON
+        # ----------------------------------------------------
+
+        data = request.get_json(silent=True)
+
+        if data is None:
+
+            return jsonify({
+                "success": False,
+                "error": "Request body must contain JSON data."
+            }), 400
+
+        # ----------------------------------------------------
+        # Required fields
+        # ----------------------------------------------------
+
+        required_fields = [
+            "Source_Dataset",
+            "Cycle",
+            "Capacity_Ah"
+        ]
+
+        for field in required_fields:
+
+            if field not in data:
+
+                return jsonify({
+                    "success": False,
+                    "error": f"Missing required field: {field}"
+                }), 400
+
+        # ----------------------------------------------------
+        # Convert numeric fields
+        # ----------------------------------------------------
+
+        numeric_fields = [
+
+            "Cycle",
+            "Capacity_Ah",
+
+            "Voltage_Min_V",
+            "Voltage_Max_V",
+            "Voltage_Mean_V",
+            "Voltage_Final_V",
+
+            "Current_Min_A",
+            "Current_Max_A",
+            "Current_Mean_A",
+
+            "Temperature_Min_C",
+            "Temperature_Max_C",
+            "Temperature_Mean_C",
+            "Temperature_Final_C",
+
+            "Discharge_Time_s",
+
+            "Initial_Capacity_Ah"
+        ]
+
+        clean_data = dict(data)
+
+        for field in numeric_fields:
+
+            if field in clean_data:
+
+                clean_data[field] = to_float(
+                    clean_data[field],
+                    field,
+                    required=False
+                )
+
+        # ----------------------------------------------------
+        # Create features
+        # ----------------------------------------------------
+
+        X = create_features(clean_data)
+
+        # ----------------------------------------------------
+        # Prediction
+        # ----------------------------------------------------
+
+        raw_prediction = MODEL.predict(X)
+
+        predicted_soh = float(
+            np.asarray(raw_prediction).reshape(-1)[0]
+        )
+
+        # ----------------------------------------------------
+        # Physical SOH range
+        # ----------------------------------------------------
+
+        raw_prediction_value = predicted_soh
+
+        predicted_soh = max(
+            0.0,
+            min(100.0, predicted_soh)
+        )
+
+        # ----------------------------------------------------
+        # Status
+        # ----------------------------------------------------
+
+        health = classify_soh(predicted_soh)
+
+        # ----------------------------------------------------
+        # Response
+        # ----------------------------------------------------
+
+        response = {
+
+            "success": True,
+
+            "prediction": {
+
+                "soh_percent": round(
+                    predicted_soh,
+                    4
+                ),
+
+                "raw_soh_percent": round(
+                    raw_prediction_value,
+                    4
+                ),
+
+                "status": health["status"],
+
+                "condition": health["condition"],
+
+                "severity": health["severity"]
+            },
+
+            "battery": {
+
+                "source_dataset":
+                    clean_data.get(
+                        "Source_Dataset"
+                    ),
+
+                "battery_id":
+                    clean_data.get(
+                        "Battery_ID"
+                    ),
+
+                "cycle":
+                    clean_data.get(
+                        "Cycle"
+                    ),
+
+                "capacity_ah":
+                    clean_data.get(
+                        "Capacity_Ah"
+                    )
+            }
 
         }
 
-    # --------------------------------------------------------
-    # VOLTAGE
-    # --------------------------------------------------------
+        return jsonify(response)
 
-    voltage = latest.get(
-        "battery_voltage_status",
-        latest.get(
-            "voltage_status",
-            "NORMAL"
-        )
-    )
+    except ValueError as e:
 
-    # --------------------------------------------------------
-    # CURRENT
-    # --------------------------------------------------------
+        return jsonify({
+            "success": False,
+            "error": str(e)
+        }), 400
 
-    current = latest.get(
-        "battery_current_status",
-        latest.get(
-            "current_status",
-            "NORMAL"
-        )
-    )
+    except Exception as e:
 
-    # --------------------------------------------------------
-    # TEMPERATURE
-    # --------------------------------------------------------
+        print("\nSOH API ERROR:")
+        print(str(e))
 
-    temperature = latest.get(
-        "battery_temperature_status",
-        latest.get(
-            "temperature_status",
-            "NORMAL"
-        )
-    )
-
-    # --------------------------------------------------------
-    # TYRE
-    # --------------------------------------------------------
-
-    tyre = latest.get(
-        "tyre_pressure_status",
-        "NORMAL"
-    )
-
-    # --------------------------------------------------------
-    # SOH
-    # --------------------------------------------------------
-
-    soh = latest.get(
-        "SOH_status",
-        latest.get(
-            "soh_status",
-            "NORMAL"
-        )
-    )
-
-    # --------------------------------------------------------
-    # VEHICLE
-    # --------------------------------------------------------
-
-    vehicle = latest.get(
-        "vehicle_status",
-        "HEALTHY"
-    )
-
-    return {
-
-        "voltage": str(voltage),
-
-        "current": str(current),
-
-        "temperature": str(
-            temperature
-        ),
-
-        "tyre_pressure": str(tyre),
-
-        "soh": str(soh),
-
-        "vehicle": str(vehicle)
-
-    }
+        return jsonify({
+            "success": False,
+            "error": "SOH prediction failed.",
+            "details": str(e)
+        }), 500
 
 
 # ============================================================
-# BATTERY HEALTH
+# SIMPLE WEB PAGE
 # ============================================================
 
-def get_health_status(soh):
-
-    if soh is None:
-
-        return "UNKNOWN"
-
-    if soh >= 80:
-
-        return "HEALTHY"
-
-    if soh >= 60:
-
-        return "WARNING"
-
-    return "CRITICAL"
-
-
-# ============================================================
-# COMPLETE DIGITAL TWIN
-# ============================================================
-
-def build_digital_twin_data():
-
-    data = load_project_data()
-
-    battery = get_battery_data(data)
-
-    vehicle = get_vehicle_data(data)
-
-    faults = get_fault_data(data)
-
-    health = get_health_status(
-        battery["soh"]
-    )
-
-    return {
-
-        "success": True,
-
-        "battery": {
-
-            **battery,
-
-            "health": health
-
-        },
-
-        "vehicle": vehicle,
-
-        "faults": faults,
-
-        "timestamp":
-            pd.Timestamp.now().isoformat()
-
-    }
-
-
-# ============================================================
-# FRONTEND
-# ============================================================
-
-@app.route("/")
+@app.route("/", methods=["GET"])
 def index():
 
-    return render_template(
-        "index.html"
-    )
+    return """
+<!DOCTYPE html>
+
+<html>
+
+<head>
+
+    <title>EV Digital Twin - SOH</title>
+
+    <meta charset="UTF-8">
+
+    <meta name="viewport"
+          content="width=device-width, initial-scale=1.0">
+
+    <style>
+
+        body {
+            font-family: Arial, sans-serif;
+            background: #f4f6f8;
+            margin: 0;
+            padding: 40px;
+        }
+
+        .container {
+            max-width: 900px;
+            margin: auto;
+        }
+
+        h1 {
+            color: #1f2937;
+        }
+
+        .card {
+            background: white;
+            padding: 25px;
+            margin-top: 20px;
+            border-radius: 12px;
+            box-shadow:
+                0 2px 10px rgba(0,0,0,0.08);
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns:
+                repeat(auto-fit, minmax(220px, 1fr));
+            gap: 15px;
+        }
+
+        label {
+            display: block;
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+
+        input,
+        select {
+            width: 100%;
+            box-sizing: border-box;
+            padding: 10px;
+            border: 1px solid #d1d5db;
+            border-radius: 6px;
+        }
+
+        button {
+            margin-top: 20px;
+            padding: 12px 25px;
+            border: none;
+            border-radius: 6px;
+            background: #2563eb;
+            color: white;
+            font-size: 16px;
+            cursor: pointer;
+        }
+
+        button:hover {
+            background: #1d4ed8;
+        }
+
+        #result {
+            margin-top: 20px;
+            padding: 20px;
+            border-radius: 10px;
+            background: #eef2ff;
+            display: none;
+        }
+
+        .soh {
+            font-size: 42px;
+            font-weight: bold;
+            color: #2563eb;
+        }
+
+        .error {
+            background: #fee2e2 !important;
+            color: #991b1b;
+        }
+
+    </style>
+
+</head>
+
+<body>
+
+<div class="container">
+
+    <h1>EV Digital Twin</h1>
+
+    <p>Battery State of Health Prediction</p>
+
+    <div class="card">
+
+        <div class="grid">
+
+            <div>
+                <label>Dataset</label>
+
+                <select id="Source_Dataset">
+
+                    <option value="NASA">
+                        NASA
+                    </option>
+
+                    <option value="Oxford">
+                        Oxford
+                    </option>
+
+                    <option value="CALCE">
+                        CALCE
+                    </option>
+
+                </select>
+
+            </div>
+
+            <div>
+                <label>Battery ID</label>
+
+                <input
+                    id="Battery_ID"
+                    value="B0005">
+            </div>
+
+            <div>
+                <label>Cycle</label>
+
+                <input
+                    id="Cycle"
+                    type="number"
+                    value="100">
+            </div>
+
+            <div>
+                <label>Capacity (Ah)</label>
+
+                <input
+                    id="Capacity_Ah"
+                    type="number"
+                    step="0.0001"
+                    value="1.85">
+            </div>
+
+            <div>
+                <label>Initial Capacity (Ah)</label>
+
+                <input
+                    id="Initial_Capacity_Ah"
+                    type="number"
+                    step="0.0001"
+                    value="2.0">
+            </div>
+
+            <div>
+                <label>Voltage Min (V)</label>
+
+                <input
+                    id="Voltage_Min_V"
+                    type="number"
+                    step="0.0001"
+                    value="2.4">
+            </div>
+
+            <div>
+                <label>Voltage Max (V)</label>
+
+                <input
+                    id="Voltage_Max_V"
+                    type="number"
+                    step="0.0001"
+                    value="4.2">
+            </div>
+
+            <div>
+                <label>Voltage Mean (V)</label>
+
+                <input
+                    id="Voltage_Mean_V"
+                    type="number"
+                    step="0.0001"
+                    value="3.5">
+            </div>
+
+            <div>
+                <label>Voltage Final (V)</label>
+
+                <input
+                    id="Voltage_Final_V"
+                    type="number"
+                    step="0.0001"
+                    value="3.4">
+            </div>
+
+            <div>
+                <label>Current Min (A)</label>
+
+                <input
+                    id="Current_Min_A"
+                    type="number"
+                    step="0.0001"
+                    value="-2.0">
+            </div>
+
+            <div>
+                <label>Current Max (A)</label>
+
+                <input
+                    id="Current_Max_A"
+                    type="number"
+                    step="0.0001"
+                    value="0.0">
+            </div>
+
+            <div>
+                <label>Current Mean (A)</label>
+
+                <input
+                    id="Current_Mean_A"
+                    type="number"
+                    step="0.0001"
+                    value="-1.8">
+            </div>
+
+            <div>
+                <label>Temperature Min (°C)</label>
+
+                <input
+                    id="Temperature_Min_C"
+                    type="number"
+                    step="0.01"
+                    value="24">
+            </div>
+
+            <div>
+                <label>Temperature Max (°C)</label>
+
+                <input
+                    id="Temperature_Max_C"
+                    type="number"
+                    step="0.01"
+                    value="40">
+            </div>
+
+            <div>
+                <label>Temperature Mean (°C)</label>
+
+                <input
+                    id="Temperature_Mean_C"
+                    type="number"
+                    step="0.01"
+                    value="32">
+            </div>
+
+            <div>
+                <label>Temperature Final (°C)</label>
+
+                <input
+                    id="Temperature_Final_C"
+                    type="number"
+                    step="0.01"
+                    value="36">
+            </div>
+
+            <div>
+                <label>Discharge Time (s)</label>
+
+                <input
+                    id="Discharge_Time_s"
+                    type="number"
+                    step="0.01"
+                    value="3000">
+            </div>
+
+        </div>
+
+        <button onclick="predictSOH()">
+            Predict SOH
+        </button>
+
+    </div>
 
 
-# ============================================================
-# API HEALTH
-# ============================================================
+    <div id="result">
 
-@app.route("/api/health")
-def api_health():
+        <h2>SOH Prediction</h2>
 
-    return {
+        <div
+            id="soh"
+            class="soh">
+            --
+        </div>
 
-        "success": True,
+        <p>
+            <strong>Status:</strong>
+            <span id="status">--</span>
+        </p>
 
-        "status": "ONLINE",
+        <p>
+            <strong>Condition:</strong>
+            <span id="condition">--</span>
+        </p>
 
-        "message":
-            "EV Digital Twin Flask API is running"
+    </div>
+
+</div>
+
+
+<script>
+
+async function predictSOH() {
+
+    const fields = [
+
+        "Source_Dataset",
+        "Battery_ID",
+        "Cycle",
+        "Capacity_Ah",
+        "Initial_Capacity_Ah",
+
+        "Voltage_Min_V",
+        "Voltage_Max_V",
+        "Voltage_Mean_V",
+        "Voltage_Final_V",
+
+        "Current_Min_A",
+        "Current_Max_A",
+        "Current_Mean_A",
+
+        "Temperature_Min_C",
+        "Temperature_Max_C",
+        "Temperature_Mean_C",
+        "Temperature_Final_C",
+
+        "Discharge_Time_s"
+
+    ];
+
+
+    const data = {};
+
+
+    fields.forEach(function(field) {
+
+        const element =
+            document.getElementById(field);
+
+        if (
+            field === "Source_Dataset" ||
+            field === "Battery_ID"
+        ) {
+
+            data[field] = element.value;
+
+        } else {
+
+            data[field] =
+                Number(element.value);
+
+        }
+
+    });
+
+
+    const result =
+        document.getElementById("result");
+
+
+    try {
+
+        result.style.display = "block";
+
+        result.classList.remove("error");
+
+        result.innerHTML =
+            "<h2>Predicting...</h2>";
+
+
+        const response =
+            await fetch(
+                "/api/predict-soh",
+                {
+                    method: "POST",
+
+                    headers: {
+                        "Content-Type":
+                            "application/json"
+                    },
+
+                    body: JSON.stringify(data)
+                }
+            );
+
+
+        const output =
+            await response.json();
+
+
+        if (!response.ok ||
+            !output.success) {
+
+            throw new Error(
+                output.error ||
+                "Prediction failed."
+            );
+
+        }
+
+
+        result.innerHTML = `
+
+            <h2>SOH Prediction</h2>
+
+            <div class="soh">
+                ${output.prediction.soh_percent.toFixed(2)}%
+            </div>
+
+            <p>
+                <strong>Status:</strong>
+                ${output.prediction.status}
+            </p>
+
+            <p>
+                <strong>Condition:</strong>
+                ${output.prediction.condition}
+            </p>
+
+            <p>
+                <strong>Battery:</strong>
+                ${output.battery.battery_id || "N/A"}
+            </p>
+
+            <p>
+                <strong>Cycle:</strong>
+                ${output.battery.cycle}
+            </p>
+
+        `;
 
     }
 
+    catch(error) {
 
-# ============================================================
-# API STATUS
-# ============================================================
+        result.style.display = "block";
 
-@app.route("/api/status")
-def api_status():
+        result.classList.add("error");
 
-    try:
+        result.innerHTML = `
 
-        data = build_digital_twin_data()
+            <h2>Prediction Error</h2>
 
-        return {
+            <p>
+                ${error.message}
+            </p>
 
-            "success": True,
+        `;
 
-            "status": "ONLINE",
+    }
 
-            "message":
-                "EV Digital Twin is running",
+}
 
-            "battery":
-                data["battery"],
+</script>
 
-            "vehicle":
-                data["vehicle"],
+</body>
 
-            "faults":
-                data["faults"],
-
-            "timestamp":
-                data["timestamp"]
-
-        }
-
-    except Exception as error:
-
-        traceback.print_exc()
-
-        return {
-
-            "success": False,
-
-            "status": "OFFLINE",
-
-            "error": str(error)
-
-        }, 500
-
-
-# ============================================================
-# API - COMPLETE DATA
-# ============================================================
-
-@app.route("/api/data")
-def api_data():
-
-    try:
-
-        return build_digital_twin_data()
-
-    except Exception as error:
-
-        traceback.print_exc()
-
-        return {
-
-            "success": False,
-
-            "error": str(error)
-
-        }, 500
-
-
-# ============================================================
-# API - BATTERY
-# ============================================================
-
-@app.route("/api/battery")
-def api_battery():
-
-    try:
-
-        data = load_project_data()
-
-        battery = get_battery_data(
-            data
-        )
-
-        battery["health"] = (
-            get_health_status(
-                battery["soh"]
-            )
-        )
-
-        return {
-
-            "success": True,
-
-            "battery": battery
-
-        }
-
-    except Exception as error:
-
-        traceback.print_exc()
-
-        return {
-
-            "success": False,
-
-            "error": str(error)
-
-        }, 500
-
-
-# ============================================================
-# API - VEHICLE
-# ============================================================
-
-@app.route("/api/vehicle")
-def api_vehicle():
-
-    try:
-
-        data = load_project_data()
-
-        vehicle = get_vehicle_data(
-            data
-        )
-
-        return {
-
-            "success": True,
-
-            "vehicle": vehicle
-
-        }
-
-    except Exception as error:
-
-        traceback.print_exc()
-
-        return {
-
-            "success": False,
-
-            "error": str(error)
-
-        }, 500
-
-
-# ============================================================
-# API - FAULTS
-# ============================================================
-
-@app.route("/api/faults")
-def api_faults():
-
-    try:
-
-        data = load_project_data()
-
-        faults = get_fault_data(
-            data
-        )
-
-        return {
-
-            "success": True,
-
-            "faults": faults
-
-        }
-
-    except Exception as error:
-
-        traceback.print_exc()
-
-        return {
-
-            "success": False,
-
-            "error": str(error)
-
-        }, 500
-
-
-# ============================================================
-# API - HISTORY
-# ============================================================
-
-@app.route("/api/history")
-def api_history():
-
-    try:
-
-        data = load_project_data()
-
-        integrated = data["integrated"]
-
-        records = dataframe_to_records(
-            integrated,
-            limit=100
-        )
-
-        return {
-
-            "success": True,
-
-            "count": len(records),
-
-            "history": records
-
-        }
-
-    except Exception as error:
-
-        traceback.print_exc()
-
-        return {
-
-            "success": False,
-
-            "error": str(error)
-
-        }, 500
-
-
-# ============================================================
-# API - FAULT INJECTION
-# ============================================================
-
-@app.route("/api/fault-injection")
-def api_fault_injection():
-
-    try:
-
-        data = load_project_data()
-
-        fault_df = data[
-            "fault_injection"
-        ]
-
-        records = dataframe_to_records(
-            fault_df,
-            limit=100
-        )
-
-        return {
-
-            "success": True,
-
-            "count": len(records),
-
-            "scenarios": records
-
-        }
-
-    except Exception as error:
-
-        traceback.print_exc()
-
-        return {
-
-            "success": False,
-
-            "error": str(error)
-
-        }, 500
-
-
-# ============================================================
-# API - SOH PREDICTIONS
-# ============================================================
-
-@app.route("/api/prediction")
-def api_prediction():
-
-    try:
-
-        data = load_project_data()
-
-        soh_df = data[
-            "soh_prediction"
-        ]
-
-        records = dataframe_to_records(
-            soh_df,
-            limit=100
-        )
-
-        return {
-
-            "success": True,
-
-            "count": len(records),
-
-            "predictions": records
-
-        }
-
-    except Exception as error:
-
-        traceback.print_exc()
-
-        return {
-
-            "success": False,
-
-            "error": str(error)
-
-        }, 500
-
-
-# ============================================================
-# API - LIVE DATA
-# ============================================================
-
-@app.route("/api/live")
-def api_live():
-
-    try:
-
-        data = load_project_data()
-
-        live_df = data["live"]
-
-        records = dataframe_to_records(
-            live_df,
-            limit=100
-        )
-
-        return {
-
-            "success": True,
-
-            "count": len(records),
-
-            "live": records
-
-        }
-
-    except Exception as error:
-
-        traceback.print_exc()
-
-        return {
-
-            "success": False,
-
-            "error": str(error)
-
-        }, 500
+</html>
+"""
 
 
 # ============================================================
@@ -1320,129 +1110,40 @@ def api_live():
 
 if __name__ == "__main__":
 
-    print()
+    try:
 
-    print("=" * 70)
+        load_model()
 
-    print(
-        "EV DIGITAL TWIN - FLASK SERVER"
-    )
+        print("\n" + "=" * 70)
+        print("FLASK SOH API READY")
+        print("=" * 70)
 
-    print("=" * 70)
+        print("\nDashboard:")
+        print("  http://127.0.0.1:5000")
 
-    print(
-        f"Project directory : {BASE_DIR}"
-    )
+        print("\nHealth:")
+        print("  http://127.0.0.1:5000/api/health")
 
-    print(
-        f"Processed data    : {PROCESSED_DIR}"
-    )
+        print("\nModel information:")
+        print("  http://127.0.0.1:5000/api/model-info")
 
-    print()
+        print("\nSOH prediction:")
+        print("  POST http://127.0.0.1:5000/api/predict-soh")
 
-    print(
-        "Checking important files:"
-    )
+        print("\nPress CTRL+C to stop.")
 
-    print()
-
-    files_to_check = [
-
-        SOH_FILE,
-
-        PROTOTYPE_FILE,
-
-        PROTOTYPE_TWIN_FILE,
-
-        INTEGRATED_FILE,
-
-        FAULT_FILE,
-
-        FAULT_INJECTION_FILE,
-
-        LIVE_FILE,
-
-        SOH_PREDICTION_FILE
-
-    ]
-
-    for file_path in files_to_check:
-
-        if file_path.exists():
-
-            status = "FOUND"
-
-        else:
-
-            status = "MISSING"
-
-        print(
-            f"{status:8} "
-            f"{file_path.name}"
+        app.run(
+            host="127.0.0.1",
+            port=5000,
+            debug=False
         )
 
-    print()
+    except Exception as e:
 
-    print("=" * 70)
+        print("\n" + "=" * 70)
+        print("APPLICATION STARTUP FAILED")
+        print("=" * 70)
 
-    print("API endpoints:")
+        print(str(e))
 
-    print()
-
-    print(
-        "  http://127.0.0.1:5000/api/health"
-    )
-
-    print(
-        "  http://127.0.0.1:5000/api/status"
-    )
-
-    print(
-        "  http://127.0.0.1:5000/api/data"
-    )
-
-    print(
-        "  http://127.0.0.1:5000/api/battery"
-    )
-
-    print(
-        "  http://127.0.0.1:5000/api/vehicle"
-    )
-
-    print(
-        "  http://127.0.0.1:5000/api/faults"
-    )
-
-    print(
-        "  http://127.0.0.1:5000/api/history"
-    )
-
-    print(
-        "  http://127.0.0.1:5000/api/fault-injection"
-    )
-
-    print(
-        "  http://127.0.0.1:5000/api/prediction"
-    )
-
-    print(
-        "  http://127.0.0.1:5000/api/live"
-    )
-
-    print()
-
-    print("=" * 70)
-
-    print("Starting Flask...")
-
-    print("=" * 70)
-
-    app.run(
-
-        host="127.0.0.1",
-
-        port=5000,
-
-        debug=True
-
-    )
+        raise

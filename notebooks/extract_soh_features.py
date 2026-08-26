@@ -1,820 +1,621 @@
-"""
-Extract SOH / capacity features from NASA and Oxford battery datasets.
-
-Phase:
-    Raw dataset -> SOH feature extraction
-
-NASA:
-    Uses the raw discharge-cycle Capacity field directly.
-    SOH (%) = Capacity_Ah / Initial_Capacity_Ah * 100
-
-Oxford:
-    Uses the extracted Oxford measurement CSV.
-    Capacity is estimated from charge accumulation within each
-    characterization record because the standardized measurement
-    dataset does not contain Capacity_Ah.
-
-CALCE:
-    Not calculated here because the current standardized CALCE file
-    contains empty measurement columns. CALCE will be handled separately
-    after inspecting the original XLSX files.
-
-Outputs:
-    processed/features/nasa_soh_features.csv
-    processed/features/oxford_soh_features.csv
-"""
-
 import os
 import glob
 import numpy as np
 import pandas as pd
 from scipy.io import loadmat
 
-
-# ================================================================
+# ============================================================
 # PATHS
-# ================================================================
+# ============================================================
 
-PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+BASE_DIR = r"C:\Major project"
 
-DATASET_ROOT = os.path.join(
-    os.path.dirname(PROJECT_ROOT),
-    "datasets"
+NASA_DIR = os.path.join(
+    BASE_DIR,
+    "datasets",
+    "NASA",
+    "extracted"
 )
 
-NASA_ROOT = os.path.join(
-    DATASET_ROOT,
-    "NASA"
+OXFORD_FILE = os.path.join(
+    BASE_DIR,
+    "datasets",
+    "Oxford",
+    "Oxford_Battery_Degradation_Dataset_1.mat"
 )
 
-OXFORD_ROOT = os.path.join(
-    DATASET_ROOT,
-    "Oxford"
+CALCE_DIR = os.path.join(
+    BASE_DIR,
+    "datasets",
+    "CALCE"
 )
 
-PROCESSED_ROOT = os.path.join(
-    PROJECT_ROOT,
-    "processed"
-)
+OUTPUT_DIR = r"C:\Major project\flask_app\processed\soh"
 
-FEATURE_ROOT = os.path.join(
-    PROCESSED_ROOT,
-    "features"
-)
-
-os.makedirs(FEATURE_ROOT, exist_ok=True)
+os.makedirs(OUTPUT_DIR, exist_ok=True)
 
 
-# ================================================================
+# ============================================================
 # HELPER FUNCTIONS
-# ================================================================
+# ============================================================
 
-def scalar_value(value):
-    """
-    Convert MATLAB/scipy scalar-like objects to a Python scalar.
-    """
+def get_fields(obj):
+    if hasattr(obj, "_fieldnames"):
+        return obj._fieldnames
+    return []
+
+
+def safe_array(value):
     try:
-        if isinstance(value, np.ndarray):
-            if value.size == 1:
-                return value.item()
-        return value
-    except Exception:
-        return value
+        arr = np.asarray(value, dtype=float).squeeze()
 
+        if arr.size == 0:
+            return None
 
-def get_struct_field(obj, field_name):
-    """
-    Safely obtain a field from scipy.io MATLAB structures.
-    """
-    if hasattr(obj, field_name):
-        return getattr(obj, field_name)
-
-    if isinstance(obj, dict):
-        return obj.get(field_name)
-
-    return None
-
-
-def to_float_array(value):
-    """
-    Convert a MATLAB/scipy value into a 1-D float array.
-    """
-    if value is None:
-        return np.array([], dtype=float)
-
-    try:
-        arr = np.asarray(value, dtype=float).reshape(-1)
         return arr
+
     except Exception:
-        return np.array([], dtype=float)
+        return None
 
 
-# ================================================================
-# NASA
-# ================================================================
+# ============================================================
+# NASA SOH
+# ============================================================
 
-def extract_nasa():
+def extract_nasa_soh():
+
     print("=" * 70)
     print("NASA SOH FEATURE EXTRACTION")
     print("=" * 70)
 
-    # Search recursively because the dataset has several extracted folders.
+    rows = []
+
     mat_files = glob.glob(
-        os.path.join(NASA_ROOT, "**", "*.mat"),
+        os.path.join(NASA_DIR, "**", "*.mat"),
         recursive=True
     )
 
-    print()
-    print("MAT files found:", len(mat_files))
-
-    # Remove duplicate files using battery ID.
-    battery_files = {}
+    # Remove duplicate filenames
+    unique_files = {}
 
     for path in mat_files:
-        filename = os.path.basename(path)
+        battery_id = os.path.splitext(
+            os.path.basename(path)
+        )[0]
 
-        if not filename.lower().startswith("b"):
+        if battery_id not in unique_files:
+            unique_files[battery_id] = path
+
+    for battery_id, path in sorted(unique_files.items()):
+
+        mat = loadmat(
+            path,
+            squeeze_me=True,
+            struct_as_record=False
+        )
+
+        if battery_id not in mat:
             continue
 
-        battery_id = os.path.splitext(filename)[0].upper()
+        cycles = mat[battery_id]
+        cycles = np.atleast_1d(cycles)
 
-        if battery_id not in battery_files:
-            battery_files[battery_id] = path
+        discharge_number = 0
 
-    print("Unique batteries:", len(battery_files))
+        print("\n" + "-" * 70)
+        print(f"Battery: {battery_id}")
 
-    rows = []
+        for cycle_index, cycle in enumerate(cycles, start=1):
 
-    for battery_id in sorted(battery_files):
-
-        mat_path = battery_files[battery_id]
-
-        print()
-        print("-" * 70)
-        print("Battery:", battery_id)
-        print("File:", mat_path)
-
-        try:
-            mat = loadmat(
-                mat_path,
-                squeeze_me=True,
-                struct_as_record=False
-            )
-
-            if battery_id not in mat:
-                print("WARNING: battery key not found")
+            if not hasattr(cycle, "type"):
                 continue
 
-            battery = mat[battery_id]
+            cycle_type = str(cycle.type).lower()
 
-            cycles = get_struct_field(battery, "cycle")
-
-            if cycles is None:
-                print("WARNING: cycle field not found")
+            if cycle_type != "discharge":
                 continue
 
-            cycles = np.atleast_1d(cycles)
+            if not hasattr(cycle, "data"):
+                continue
 
-            discharge_number = 0
+            data = cycle.data
 
-            for cycle_index, cycle in enumerate(cycles, start=1):
+            capacity = None
 
-                cycle_type = get_struct_field(cycle, "type")
-                cycle_type = scalar_value(cycle_type)
+            # NASA discharge capacity field
+            for field in get_fields(data):
 
-                if isinstance(cycle_type, bytes):
-                    cycle_type = cycle_type.decode(errors="ignore")
+                if field.lower() in [
+                    "capacity",
+                    "capacity_ah",
+                    "capacitya_h",
+                    "capacityah"
+                ]:
 
-                if cycle_type is None:
-                    continue
-
-                cycle_type = str(cycle_type).strip().lower()
-
-                if cycle_type != "discharge":
-                    continue
-
-                data = get_struct_field(cycle, "data")
-
-                if data is None:
-                    continue
-
-                capacity = get_struct_field(data, "Capacity")
-                capacity = scalar_value(capacity)
-
-                try:
-                    capacity = float(np.asarray(capacity).squeeze())
-                except Exception:
-                    continue
-
-                if not np.isfinite(capacity):
-                    continue
-
-                discharge_number += 1
-
-                ambient_temperature = get_struct_field(
-                    cycle,
-                    "ambient_temperature"
-                )
-
-                try:
-                    ambient_temperature = float(
-                        np.asarray(ambient_temperature).squeeze()
+                    value = safe_array(
+                        getattr(data, field)
                     )
-                except Exception:
-                    ambient_temperature = np.nan
 
-                # Extract useful cycle-level measurements.
-                voltage = to_float_array(
-                    get_struct_field(data, "Voltage_measured")
-                )
+                    if value is not None:
+                        capacity = float(
+                            np.nanmax(np.abs(value))
+                        )
+                        break
 
-                current = to_float_array(
-                    get_struct_field(data, "Current_measured")
-                )
+            if capacity is None:
+                continue
 
-                temperature = to_float_array(
-                    get_struct_field(data, "Temperature_measured")
-                )
+            discharge_number += 1
 
-                time = to_float_array(
-                    get_struct_field(data, "Time")
-                )
+            rows.append({
+                "Dataset": "NASA",
+                "Battery_ID": battery_id,
+                "Cycle": discharge_number,
+                "Capacity_Ah": capacity
+            })
 
-                row = {
-                    "Dataset": "NASA",
-                    "Battery_ID": battery_id,
-                    "Cycle": discharge_number,
-                    "Raw_Cycle_Index": cycle_index,
-                    "Capacity_Ah": capacity,
-                    "Ambient_Temperature_C": ambient_temperature,
-                    "Initial_Voltage_V": (
-                        voltage[0] if len(voltage) else np.nan
-                    ),
-                    "Final_Voltage_V": (
-                        voltage[-1] if len(voltage) else np.nan
-                    ),
-                    "Min_Voltage_V": (
-                        np.nanmin(voltage) if len(voltage) else np.nan
-                    ),
-                    "Max_Voltage_V": (
-                        np.nanmax(voltage) if len(voltage) else np.nan
-                    ),
-                    "Mean_Voltage_V": (
-                        np.nanmean(voltage) if len(voltage) else np.nan
-                    ),
-                    "Mean_Current_A": (
-                        np.nanmean(current) if len(current) else np.nan
-                    ),
-                    "Min_Current_A": (
-                        np.nanmin(current) if len(current) else np.nan
-                    ),
-                    "Max_Current_A": (
-                        np.nanmax(current) if len(current) else np.nan
-                    ),
-                    "Mean_Temperature_C": (
-                        np.nanmean(temperature)
-                        if len(temperature)
-                        else np.nan
-                    ),
-                    "Max_Temperature_C": (
-                        np.nanmax(temperature)
-                        if len(temperature)
-                        else np.nan
-                    ),
-                    "Discharge_Time_s": (
-                        time[-1] - time[0]
-                        if len(time) >= 2
-                        else np.nan
-                    ),
-                }
-
-                rows.append(row)
-
-            print("Discharge records:", discharge_number)
-
-        except Exception as exc:
-            print("ERROR:", exc)
-
-    if not rows:
-        print()
-        print("ERROR: No NASA discharge records extracted.")
-        return None
+        print(
+            f"Discharge cycles: {discharge_number}"
+        )
 
     df = pd.DataFrame(rows)
 
-    # ------------------------------------------------------------
-    # SOH calculation
-    # ------------------------------------------------------------
-    #
-    # Each battery gets its own initial capacity because the
-    # measured initial capacities are not exactly identical.
-    #
-    # SOH = capacity / initial capacity * 100
-    #
+    if df.empty:
+        print("\nERROR: NASA SOH dataset is empty.")
+        return df
 
-    df["Initial_Capacity_Ah"] = (
-        df.groupby("Battery_ID")["Capacity_Ah"]
-        .transform("first")
-    )
+    # --------------------------------------------------------
+    # SOH relative to first measured capacity
+    # --------------------------------------------------------
 
     df["SOH_percent"] = (
-        df["Capacity_Ah"]
-        / df["Initial_Capacity_Ah"]
-        * 100.0
+        df.groupby("Battery_ID")["Capacity_Ah"]
+        .transform(
+            lambda x: x / x.iloc[0] * 100
+        )
     )
 
-    # Capacity fade relative to the first measured capacity.
-    df["Capacity_Fade_percent"] = (
-        100.0 - df["SOH_percent"]
-    )
-
-    # Keep impossible numerical values out.
-    df.loc[
-        ~np.isfinite(df["SOH_percent"]),
-        "SOH_percent"
-    ] = np.nan
-
-    output_path = os.path.join(
-        FEATURE_ROOT,
+    output = os.path.join(
+        OUTPUT_DIR,
         "nasa_soh_features.csv"
     )
 
-    df.to_csv(
-        output_path,
-        index=False
-    )
+    df.to_csv(output, index=False)
 
-    print()
-    print("=" * 70)
-    print("NASA RESULT")
+    print("\n" + "=" * 70)
+    print("NASA SOH SUMMARY")
     print("=" * 70)
 
-    print("Rows:", len(df))
-    print("Batteries:", df["Battery_ID"].nunique())
-    print("Discharge cycles:", df.groupby("Battery_ID").size().sum())
-
-    print()
-    print("SOH RANGE")
+    print(f"Rows: {len(df)}")
     print(
-        "Minimum SOH:",
-        round(df["SOH_percent"].min(), 3)
+        f"Batteries: "
+        f"{df['Battery_ID'].nunique()}"
     )
+
     print(
-        "Maximum SOH:",
-        round(df["SOH_percent"].max(), 3)
+        df.groupby("Battery_ID")["SOH_percent"]
+        .agg(["count", "first", "last", "min"])
     )
 
-    print()
-    print("BATTERY SUMMARY")
-
-    summary = (
-        df.groupby("Battery_ID")
-        .agg(
-            Cycles=("Cycle", "count"),
-            Initial_Capacity_Ah=(
-                "Initial_Capacity_Ah",
-                "first"
-            ),
-            Final_Capacity_Ah=(
-                "Capacity_Ah",
-                "last"
-            ),
-            Final_SOH_percent=(
-                "SOH_percent",
-                "last"
-            )
-        )
-        .reset_index()
-    )
-
-    print(summary.to_string(index=False))
-
-    print()
-    print("Saved:")
-    print(output_path)
+    print("\nSaved:")
+    print(output)
 
     return df
 
 
-# ================================================================
-# OXFORD
-# ================================================================
+# ============================================================
+# OXFORD SOH
+# ============================================================
 
-def extract_oxford():
-    print()
-    print("=" * 70)
+def extract_oxford_soh():
+
+    print("\n" + "=" * 70)
     print("OXFORD SOH FEATURE EXTRACTION")
     print("=" * 70)
 
-    input_path = os.path.join(
-        PROCESSED_ROOT,
-        "oxford",
-        "oxford_measurements.csv"
+    print(f"File: {OXFORD_FILE}")
+
+    if not os.path.exists(OXFORD_FILE):
+
+        print("\nERROR: Oxford MAT file not found.")
+
+        return pd.DataFrame()
+
+    mat = loadmat(
+        OXFORD_FILE,
+        squeeze_me=True,
+        struct_as_record=False
     )
 
-    if not os.path.exists(input_path):
+    rows = []
 
-        print()
-        print("ERROR: Oxford measurement file not found:")
-        print(input_path)
+    # --------------------------------------------------------
+    # Cell1 ... Cell8
+    # --------------------------------------------------------
 
-        return None
+    for cell_number in range(1, 9):
 
-    print()
-    print("Input:")
-    print(input_path)
+        battery_id = f"Cell{cell_number}"
 
-    df = pd.read_csv(input_path)
+        if battery_id not in mat:
 
-    required_columns = [
-        "Cell_ID",
-        "Cycle",
-        "Cycle_Label",
-        "Time",
-        "Voltage",
-        "Charge_mAh",
-        "Temperature"
-    ]
-
-    missing = [
-        c for c in required_columns
-        if c not in df.columns
-    ]
-
-    if missing:
-
-        print()
-        print("ERROR: Missing columns:")
-        print(missing)
-
-        return None
-
-    # ------------------------------------------------------------
-    # Important Oxford note
-    # ------------------------------------------------------------
-    #
-    # Oxford data contains characterization records rather than
-    # the NASA-style Capacity field.
-    #
-    # The extracted CSV contains Charge_mAh, so we use the maximum
-    # charge accumulated within each characterization record as
-    # the capacity-related measurement.
-    #
-    # This is deliberately kept separate from NASA capacity.
-    #
-
-    print()
-    print("Calculating characterization-level capacity...")
-
-    grouped = []
-
-    for (cell_id, cycle, cycle_label), group in df.groupby(
-        ["Cell_ID", "Cycle", "Cycle_Label"],
-        sort=True
-    ):
-
-        charge = pd.to_numeric(
-            group["Charge_mAh"],
-            errors="coerce"
-        )
-
-        voltage = pd.to_numeric(
-            group["Voltage"],
-            errors="coerce"
-        )
-
-        temperature = pd.to_numeric(
-            group["Temperature"],
-            errors="coerce"
-        )
-
-        time = pd.to_numeric(
-            group["Time"],
-            errors="coerce"
-        )
-
-        valid_charge = charge.dropna()
-
-        if len(valid_charge):
-
-            # Charge_mAh is cumulative within the record.
-            capacity_mAh = valid_charge.max()
-
-        else:
-            capacity_mAh = np.nan
-
-        row = {
-            "Dataset": "Oxford",
-            "Battery_ID": cell_id,
-            "Cycle": cycle,
-            "Cycle_Label": cycle_label,
-
-            "Capacity_mAh": capacity_mAh,
-
-            "Initial_Voltage_V": (
-                voltage.iloc[0]
-                if len(voltage.dropna())
-                else np.nan
-            ),
-
-            "Final_Voltage_V": (
-                voltage.iloc[-1]
-                if len(voltage.dropna())
-                else np.nan
-            ),
-
-            "Min_Voltage_V": (
-                voltage.min()
-                if len(voltage.dropna())
-                else np.nan
-            ),
-
-            "Max_Voltage_V": (
-                voltage.max()
-                if len(voltage.dropna())
-                else np.nan
-            ),
-
-            "Mean_Voltage_V": (
-                voltage.mean()
-                if len(voltage.dropna())
-                else np.nan
-            ),
-
-            "Mean_Temperature_C": (
-                temperature.mean()
-                if len(temperature.dropna())
-                else np.nan
-            ),
-
-            "Max_Temperature_C": (
-                temperature.max()
-                if len(temperature.dropna())
-                else np.nan
-            ),
-
-            "Time_Start": (
-                time.min()
-                if len(time.dropna())
-                else np.nan
-            ),
-
-            "Time_End": (
-                time.max()
-                if len(time.dropna())
-                else np.nan
-            ),
-        }
-
-        if (
-            pd.notna(row["Time_Start"])
-            and pd.notna(row["Time_End"])
-        ):
-            row["Duration"] = (
-                row["Time_End"]
-                - row["Time_Start"]
+            print(
+                f"\nWARNING: {battery_id} not found."
             )
-        else:
-            row["Duration"] = np.nan
 
-        grouped.append(row)
+            continue
 
-    features = pd.DataFrame(grouped)
+        cell = mat[battery_id]
 
-    if features.empty:
+        cycle_fields = get_fields(cell)
 
-        print()
-        print("ERROR: No Oxford characterization records found.")
+        print("\n" + "-" * 70)
+        print(
+            f"Cell: {battery_id}"
+        )
+        print(
+            f"Characterization records: "
+            f"{len(cycle_fields)}"
+        )
 
-        return None
+        characterization_number = 0
 
-    # ------------------------------------------------------------
-    # Initial capacity per cell
-    # ------------------------------------------------------------
+        for record_name in cycle_fields:
 
-    features["Initial_Capacity_mAh"] = (
-        features.groupby("Battery_ID")["Capacity_mAh"]
-        .transform("first")
-    )
+            record = getattr(
+                cell,
+                record_name
+            )
 
-    # ------------------------------------------------------------
+            # ------------------------------------------------
+            # C1dc = 1C constant-current discharge
+            # ------------------------------------------------
+
+            if not hasattr(record, "C1dc"):
+                continue
+
+            c1dc = record.C1dc
+
+            if not hasattr(c1dc, "q"):
+                continue
+
+            q = safe_array(c1dc.q)
+
+            if q is None:
+                continue
+
+            if q.size == 0:
+                continue
+
+            # ------------------------------------------------
+            # Discharge capacity
+            #
+            # q starts near 0 and becomes negative during
+            # discharge.
+            #
+            # Therefore:
+            #
+            # Capacity = absolute final q
+            # ------------------------------------------------
+
+            finite_q = q[np.isfinite(q)]
+
+            if finite_q.size == 0:
+                continue
+
+            capacity_mAh = abs(
+                float(finite_q[-1])
+            )
+
+            if capacity_mAh <= 0:
+                continue
+
+            characterization_number += 1
+
+            # Extract cycle label
+            try:
+                cycle_label = int(
+                    record_name.replace(
+                        "cyc",
+                        ""
+                    )
+                )
+            except Exception:
+                cycle_label = characterization_number
+
+            rows.append({
+                "Dataset": "Oxford",
+                "Battery_ID": battery_id,
+                "Cycle": characterization_number,
+                "Cycle_Label": cycle_label,
+                "Capacity_mAh": capacity_mAh
+            })
+
+        print(
+            f"Valid discharge capacity records: "
+            f"{characterization_number}"
+        )
+
+    df = pd.DataFrame(rows)
+
+    if df.empty:
+
+        print(
+            "\nERROR: Oxford SOH dataset is empty."
+        )
+
+        return df
+
+    # --------------------------------------------------------
     # SOH
-    # ------------------------------------------------------------
+    #
+    # SOH = current capacity / initial capacity * 100
+    # --------------------------------------------------------
 
-    features["SOH_percent"] = (
-        features["Capacity_mAh"]
-        / features["Initial_Capacity_mAh"]
-        * 100.0
+    df["SOH_percent"] = (
+        df.groupby("Battery_ID")["Capacity_mAh"]
+        .transform(
+            lambda x: x / x.iloc[0] * 100
+        )
     )
 
-    features["Capacity_Fade_percent"] = (
-        100.0 - features["SOH_percent"]
+    # --------------------------------------------------------
+    # Convert capacity to Ah as well
+    # --------------------------------------------------------
+
+    df["Capacity_Ah"] = (
+        df["Capacity_mAh"] / 1000.0
     )
 
-    features.loc[
-        ~np.isfinite(features["SOH_percent"]),
-        "SOH_percent"
-    ] = np.nan
-
-    output_path = os.path.join(
-        FEATURE_ROOT,
+    output = os.path.join(
+        OUTPUT_DIR,
         "oxford_soh_features.csv"
     )
 
-    features.to_csv(
-        output_path,
+    df.to_csv(
+        output,
         index=False
     )
 
-    print()
+    print("\n" + "=" * 70)
+    print("OXFORD SOH SUMMARY")
     print("=" * 70)
-    print("OXFORD RESULT")
+
+    print(f"Rows: {len(df)}")
+
+    print(
+        f"Cells: "
+        f"{df['Battery_ID'].nunique()}"
+    )
+
+    print(
+        df.groupby("Battery_ID")["SOH_percent"]
+        .agg(["count", "first", "last", "min"])
+    )
+
+    print("\nCapacity summary:")
+
+    print(
+        df.groupby("Battery_ID")["Capacity_mAh"]
+        .agg(["first", "last", "min", "max"])
+    )
+
+    print("\nSaved:")
+    print(output)
+
+    return df
+
+
+# ============================================================
+# CALCE SOH
+# ============================================================
+
+def extract_calce_soh():
+
+    print("\n" + "=" * 70)
+    print("CALCE SOH FEATURE EXTRACTION")
     print("=" * 70)
 
-    print("Rows:", len(features))
-    print("Cells:", features["Battery_ID"].nunique())
+    # --------------------------------------------------------
+    # Use existing CALCE SOH files if already available
+    # --------------------------------------------------------
 
-    print()
-    print("CAPACITY RANGE")
+    existing_files = [
+        r"C:\Major project\flask_app\processed\cs2_35_soh.csv",
+        r"C:\Major project\flask_app\processed\cs2_36_soh.csv",
+        r"C:\Major project\flask_app\processed\cs2_37_soh.csv",
+        r"C:\Major project\flask_app\processed\cs2_38_soh.csv"
+    ]
 
-    valid_capacity = features[
-        "Capacity_mAh"
-    ].dropna()
+    rows = []
 
-    if len(valid_capacity):
+    for path in existing_files:
 
-        print(
-            "Minimum capacity:",
-            round(valid_capacity.min(), 4),
-            "mAh"
+        if not os.path.exists(path):
+            continue
+
+        try:
+
+            df = pd.read_csv(path)
+
+        except Exception:
+            continue
+
+        if df.empty:
+            continue
+
+        # Identify battery
+        battery_id = None
+
+        for column in [
+            "Battery_ID",
+            "Battery",
+            "battery",
+            "Cell"
+        ]:
+
+            if column in df.columns:
+
+                battery_id = str(
+                    df[column].iloc[0]
+                )
+
+                break
+
+        if battery_id is None:
+
+            battery_id = os.path.basename(
+                path
+            ).replace(
+                "_soh.csv",
+                ""
+            ).upper()
+
+        # Identify capacity
+        capacity_column = None
+
+        for column in [
+            "Discharge_Capacity_Ah",
+            "Capacity_Ah",
+            "Capacity",
+            "capacity"
+        ]:
+
+            if column in df.columns:
+
+                capacity_column = column
+
+                break
+
+        if capacity_column is None:
+            continue
+
+        capacity = pd.to_numeric(
+            df[capacity_column],
+            errors="coerce"
         )
 
-        print(
-            "Maximum capacity:",
-            round(valid_capacity.max(), 4),
-            "mAh"
-        )
-
-    else:
-
-        print("No valid capacity values.")
-
-    print()
-    print("SOH RANGE")
-
-    valid_soh = features[
-        "SOH_percent"
-    ].dropna()
-
-    if len(valid_soh):
-
-        print(
-            "Minimum SOH:",
-            round(valid_soh.min(), 3)
-        )
-
-        print(
-            "Maximum SOH:",
-            round(valid_soh.max(), 3)
-        )
-
-    else:
-
-        print("No valid SOH values.")
-
-    print()
-    print("CELL SUMMARY")
-
-    summary = (
-        features.groupby("Battery_ID")
-        .agg(
-            Characterization_Records=(
-                "Cycle",
-                "count"
+        temp = pd.DataFrame({
+            "Dataset": "CALCE",
+            "Battery_ID": battery_id,
+            "Cycle": np.arange(
+                1,
+                len(df) + 1
             ),
-            Initial_Capacity_mAh=(
-                "Initial_Capacity_mAh",
-                "first"
-            ),
-            Final_Capacity_mAh=(
-                "Capacity_mAh",
-                "last"
-            ),
-            Final_SOH_percent=(
-                "SOH_percent",
-                "last"
-            )
+            "Capacity_Ah": capacity
+        })
+
+        temp = temp.dropna(
+            subset=["Capacity_Ah"]
         )
-        .reset_index()
+
+        if temp.empty:
+            continue
+
+        temp["SOH_percent"] = (
+            temp["Capacity_Ah"]
+            / temp["Capacity_Ah"].iloc[0]
+            * 100
+        )
+
+        rows.append(temp)
+
+    if not rows:
+
+        print(
+            "\nWARNING: No existing CALCE SOH "
+            "files could be used."
+        )
+
+        return pd.DataFrame()
+
+    df = pd.concat(
+        rows,
+        ignore_index=True
     )
 
-    print(summary.to_string(index=False))
+    output = os.path.join(
+        OUTPUT_DIR,
+        "calce_soh_features.csv"
+    )
 
-    print()
-    print("Saved:")
-    print(output_path)
+    df.to_csv(
+        output,
+        index=False
+    )
 
-    return features
-
-
-# ================================================================
-# CALCE STATUS
-# ================================================================
-
-def report_calce_status():
-
-    print()
+    print("\n" + "=" * 70)
+    print("CALCE SOH SUMMARY")
     print("=" * 70)
-    print("CALCE SOH STATUS")
-    print("=" * 70)
 
-    print()
-    print("CALCE SOH is NOT calculated in this script.")
+    print(f"Rows: {len(df)}")
 
-    print()
     print(
-        "Reason:"
+        f"Batteries: "
+        f"{df['Battery_ID'].nunique()}"
     )
 
     print(
-        "The current standardized CALCE dataset contains "
-        "cycle-level rows, but its measurement columns are empty."
+        df.groupby("Battery_ID")["SOH_percent"]
+        .agg(["count", "first", "last", "min"])
     )
 
-    print()
-    print(
-        "The original CALCE XLSX files must be inspected and "
-        "capacity extracted directly from the raw sheets."
-    )
+    print("\nSaved:")
+    print(output)
 
-    print()
-    print(
-        "Next CALCE phase:"
-    )
-
-    print(
-        "Raw XLSX -> inspect sheet structure -> extract discharge "
-        "capacity -> calculate SOH"
-    )
+    return df
 
 
-# ================================================================
+# ============================================================
 # MAIN
-# ================================================================
+# ============================================================
 
-def main():
+if __name__ == "__main__":
 
-    print("=" * 70)
-    print("BATTERY SOH FEATURE EXTRACTION")
-    print("=" * 70)
+    nasa_df = extract_nasa_soh()
 
-    print()
-    print("Project:")
-    print(PROJECT_ROOT)
+    oxford_df = extract_oxford_soh()
 
-    print()
-    print("Feature output directory:")
-    print(FEATURE_ROOT)
+    calce_df = extract_calce_soh()
 
-    nasa_df = extract_nasa()
-
-    oxford_df = extract_oxford()
-
-    report_calce_status()
-
-    print()
-    print("=" * 70)
+    print("\n" + "=" * 70)
     print("SOH FEATURE EXTRACTION COMPLETE")
     print("=" * 70)
 
-    print()
-    print("Outputs:")
+    print("\nOutput directory:")
+    print(OUTPUT_DIR)
 
-    nasa_output = os.path.join(
-        FEATURE_ROOT,
-        "nasa_soh_features.csv"
+    print("\nFiles:")
+
+    print(
+        os.path.join(
+            OUTPUT_DIR,
+            "nasa_soh_features.csv"
+        )
     )
 
-    oxford_output = os.path.join(
-        FEATURE_ROOT,
-        "oxford_soh_features.csv"
+    print(
+        os.path.join(
+            OUTPUT_DIR,
+            "oxford_soh_features.csv"
+        )
     )
 
-    print()
-    print("NASA:")
-    print(nasa_output)
+    print(
+        os.path.join(
+            OUTPUT_DIR,
+            "calce_soh_features.csv"
+        )
+    )
 
-    print()
-    print("Oxford:")
-    print(oxford_output)
+    print("\nIMPORTANT:")
+    print(
+        "Oxford SOH is calculated from the "
+        "final absolute C1dc.q value."
+    )
 
-    print()
-    print("CALCE:")
-    print("Pending raw XLSX capacity extraction.")
-
-    print()
-    print("=" * 70)
-
-
-if __name__ == "__main__":
-    main()
+    print(
+        "SOH is normalized independently for "
+        "each battery/cell using its first "
+        "characterization capacity."
+    )

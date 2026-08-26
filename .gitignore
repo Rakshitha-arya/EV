@@ -20,3 +20,5 @@ env/
 processed/*.csv
 processed/**/*.csvprocessed/*.csv
 processed/**/*.csv
+# Large dataset files
+processed/**/*.csv

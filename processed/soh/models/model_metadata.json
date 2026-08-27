@@ -1,0 +1,104 @@
+{
+    "best_model": "Ridge",
+    "target_column": "SOH_percent",
+    "input_dataset": "C:\\Major project\\flask_app\\processed\\soh\\combined_soh_dataset.csv",
+    "model_file": "C:\\Major project\\flask_app\\processed\\soh\\models\\best_soh_model.pkl",
+    "feature_columns": [
+        "Cycle",
+        "Capacity_Ah",
+        "Voltage_Min_V",
+        "Voltage_Max_V",
+        "Voltage_Mean_V",
+        "Voltage_Final_V",
+        "Current_Min_A",
+        "Current_Max_A",
+        "Current_Mean_A",
+        "Temperature_Min_C",
+        "Temperature_Max_C",
+        "Temperature_Mean_C",
+        "Temperature_Final_C",
+        "Discharge_Time_s",
+        "Cycle_Normalized",
+        "Capacity_Ratio",
+        "Voltage_Range_V",
+        "Current_Range_A",
+        "Temperature_Range_C",
+        "Source_Dataset"
+    ],
+    "metrics": {
+        "MAE": 0.09949353731251968,
+        "RMSE": 0.12167912939767878,
+        "R2": 0.9999069228679589
+    },
+    "training_rows": 1010,
+    "testing_rows": 345,
+    "training_groups": [
+        {
+            "Source_Dataset": "CALCE",
+            "Battery_ID": "CS2_37"
+        },
+        {
+            "Source_Dataset": "CALCE",
+            "Battery_ID": "CS2_38"
+        },
+        {
+            "Source_Dataset": "NASA",
+            "Battery_ID": "B0005"
+        },
+        {
+            "Source_Dataset": "NASA",
+            "Battery_ID": "B0007"
+        },
+        {
+            "Source_Dataset": "NASA",
+            "Battery_ID": "B0018"
+        },
+        {
+            "Source_Dataset": "Oxford",
+            "Battery_ID": "Cell1"
+        },
+        {
+            "Source_Dataset": "Oxford",
+            "Battery_ID": "Cell2"
+        },
+        {
+            "Source_Dataset": "Oxford",
+            "Battery_ID": "Cell3"
+        },
+        {
+            "Source_Dataset": "Oxford",
+            "Battery_ID": "Cell4"
+        },
+        {
+            "Source_Dataset": "Oxford",
+            "Battery_ID": "Cell5"
+        },
+        {
+            "Source_Dataset": "Oxford",
+            "Battery_ID": "Cell6"
+        },
+        {
+            "Source_Dataset": "Oxford",
+            "Battery_ID": "Cell8"
+        }
+    ],
+    "testing_groups": [
+        {
+            "Source_Dataset": "CALCE",
+            "Battery_ID": "CS2_35"
+        },
+        {
+            "Source_Dataset": "CALCE",
+            "Battery_ID": "CS2_36"
+        },
+        {
+            "Source_Dataset": "NASA",
+            "Battery_ID": "B0006"
+        },
+        {
+            "Source_Dataset": "Oxford",
+            "Battery_ID": "Cell7"
+        }
+    ],
+    "random_state": 42
+}

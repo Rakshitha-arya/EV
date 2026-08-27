@@ -1,0 +1,27 @@
+{
+    "feature_columns": [
+        "Cycle",
+        "Capacity_Ah",
+        "Voltage_Min_V",
+        "Voltage_Max_V",
+        "Voltage_Mean_V",
+        "Voltage_Final_V",
+        "Current_Min_A",
+        "Current_Max_A",
+        "Current_Mean_A",
+        "Temperature_Min_C",
+        "Temperature_Max_C",
+        "Temperature_Mean_C",
+        "Temperature_Final_C",
+        "Discharge_Time_s",
+        "Cycle_Normalized",
+        "Capacity_Ratio",
+        "Voltage_Range_V",
+        "Current_Range_A",
+        "Temperature_Range_C",
+        "Source_Dataset"
+    ],
+    "target_column": "SOH_percent",
+    "dataset_column": "Source_Dataset",
+    "group_column": "Battery_ID"
+}

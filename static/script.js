@@ -2761,7 +2761,7 @@ async function runHistoricalTrendAnalysis() {
         // ----------------------------------------------------
 
         const history =
-            Array.isArray(data.history)
+            Array.isArray(data.data)
                 ? data.history
                 : [];
 

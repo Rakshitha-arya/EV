@@ -2923,8 +2923,8 @@ async function runHistoricalTrendAnalysis() {
         // ----------------------------------------------------
 
         const history =
-            Array.isArray(data.history)
-                ? data.history
+            Array.isArray(data.data)
+                ? data.data
                 : [];
 
 

@@ -1707,8 +1707,6 @@ async function refreshDashboard() {
 
     await loadHistory();
 
-    await updateBatteryPrediction();
-
     await runHistoricalTrendAnalysis({ data: dashboardData?.history || [] });
     await runStep43Analysis(dashboardData?.battery, dashboardData?.vehicle);
 
@@ -2383,130 +2381,344 @@ async function loadSOHHistory() {
 // ============================================================
 
 async function updateBatteryPrediction() {
-    if (window.evPredictionInProgress) return;
-    window.evPredictionInProgress = true;
+
+    console.log("Running battery prediction...");
 
     try {
-        const battery = dashboardData?.battery || {};
-        const vehicle = dashboardData?.vehicle || {};
-        const payload = { ...(battery.prediction_input || {}) };
 
-        if (!payload.Battery_ID || !payload.Source_Dataset) {
-            throw new Error("Current battery identity telemetry is unavailable.");
-        }
+        // ----------------------------------------------------
+        // Get current battery data
+        // ----------------------------------------------------
 
-        if (Array.isArray(battery.unavailable_fields) &&
-            battery.unavailable_fields.length > 0) {
-            console.info(
-                "SOH prediction using available telemetry; unavailable:",
-                battery.unavailable_fields
-            );
-        }
+        const batteryResponse =
+            await fetch("/api/battery");
 
-        const predictionResponse = await fetch("/api/predict-soh", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(payload)
-        });
-
-        if (!predictionResponse.ok) {
+        if (!batteryResponse.ok) {
             throw new Error(
-                "SOH prediction API returned HTTP " + predictionResponse.status
+                "Battery API returned HTTP " +
+                batteryResponse.status
             );
         }
 
-        const result = await predictionResponse.json();
-        const prediction = result?.prediction;
-        const predictedSOH = Number(prediction?.soh_percent);
+        const batteryData =
+            await batteryResponse.json();
 
-        if (!result?.success || !Number.isFinite(predictedSOH)) {
-            throw new Error("SOH prediction response is invalid.");
-        }
 
-        const voltage = finiteNumber(battery.voltage);
-        const current = finiteNumber(battery.current);
-        const temperature = finiteNumber(battery.temperature);
-        const power = finiteNumber(battery.power);
-        let riskScore = 0;
-        const warnings = [];
+        // ----------------------------------------------------
+        // Extract battery object
+        // ----------------------------------------------------
 
-        if (predictedSOH < 70) {
-            riskScore += 40;
-            warnings.push("ML-predicted battery SOH is critically low.");
-        } else if (predictedSOH < 80) {
-            riskScore += 25;
-            warnings.push("ML-predicted battery SOH is below the recommended level.");
-        } else if (predictedSOH < 90) {
-            riskScore += 10;
-            warnings.push("ML-predicted battery SOH is showing degradation.");
-        }
+        const battery =
+            batteryData.battery || {};
 
-        if (voltage !== null && voltage < 10.5) {
-            riskScore += 35;
-            warnings.push("Battery voltage is critically low.");
-        } else if (voltage < 11.5) {
-            riskScore += 20;
-            warnings.push("Battery voltage is low.");
-        }
 
-        if (temperature !== null && temperature >= 45) {
-            riskScore += 35;
-            warnings.push("Battery temperature is critically high.");
-        } else if (temperature >= 40) {
-            riskScore += 20;
-            warnings.push("Battery temperature is elevated.");
-        }
+        const voltage =
+            Number(battery.voltage);
 
-        if (current !== null && Math.abs(current) > 10) {
-            riskScore += 30;
-            warnings.push("Battery current is critically high.");
-        } else if (Math.abs(current) > 7) {
-            riskScore += 15;
-            warnings.push("Battery current is elevated.");
-        }
+        const current =
+            Number(battery.current);
 
-        const riskStatus = riskScore >= 60
-            ? "CRITICAL"
-            : riskScore >= 30
-                ? "WARNING"
-                : "NORMAL";
-        const message =
-            `ML-predicted battery health is ${
-                String(prediction.status).toLowerCase()
-            }. Risk/warning status: ${riskStatus}.`;
+        const temperature =
+            Number(battery.temperature);
 
-        setText("batterySOH", `${predictedSOH.toFixed(2)}%`);
-        setText("sohStatus", prediction.status);
-        setText("predictiveAlert", message);
+        const power =
+            Number(battery.power);
 
-        const alertElement = document.getElementById("predictiveAlert");
-        if (alertElement) {
-            alertElement.className =
-                "prediction-message " + prediction.severity;
-        }
+        const soh =
+            Number(battery.soh);
 
-        window.evPrediction = {
-            status: riskStatus,
-            mlStatus: prediction.status,
-            riskScore,
-            warnings,
-            soh: predictedSOH,
+
+        console.log("Prediction input:", {
             voltage,
             current,
             temperature,
             power,
-            vehicle
+            soh
+        });
+
+
+        // ----------------------------------------------------
+        // Validate data
+        // ----------------------------------------------------
+
+        if (
+            !Number.isFinite(voltage) ||
+            !Number.isFinite(current) ||
+            !Number.isFinite(temperature) ||
+            !Number.isFinite(power) ||
+            !Number.isFinite(soh)
+        ) {
+
+            console.warn(
+                "Incomplete battery data for prediction."
+            );
+
+            return;
+        }
+
+
+        // ----------------------------------------------------
+        // Risk calculation
+        // ----------------------------------------------------
+
+        let riskScore = 0;
+
+        const warnings = [];
+
+
+        // Battery SOH
+        // ----------------------------------------------------
+
+        if (soh < 70) {
+
+            riskScore += 40;
+
+            warnings.push(
+                "Battery SOH is critically low."
+            );
+
+        }
+        else if (soh < 80) {
+
+            riskScore += 25;
+
+            warnings.push(
+                "Battery SOH is below the recommended level."
+            );
+
+        }
+        else if (soh < 90) {
+
+            riskScore += 10;
+
+            warnings.push(
+                "Battery SOH is showing degradation."
+            );
+        }
+
+
+        // Battery voltage
+        // ----------------------------------------------------
+
+        if (voltage < 10.5) {
+
+            riskScore += 35;
+
+            warnings.push(
+                "Battery voltage is critically low."
+            );
+
+        }
+        else if (voltage < 11.5) {
+
+            riskScore += 20;
+
+            warnings.push(
+                "Battery voltage is low."
+            );
+        }
+
+
+        // Battery temperature
+        // ----------------------------------------------------
+
+        if (temperature >= 45) {
+
+            riskScore += 35;
+
+            warnings.push(
+                "Battery temperature is critically high."
+            );
+
+        }
+        else if (temperature >= 40) {
+
+            riskScore += 20;
+
+            warnings.push(
+                "Battery temperature is elevated."
+            );
+        }
+
+
+        // Battery current
+        // ----------------------------------------------------
+
+        if (current > 10) {
+
+            riskScore += 30;
+
+            warnings.push(
+                "Battery current is critically high."
+            );
+
+        }
+        else if (current > 7) {
+
+            riskScore += 15;
+
+            warnings.push(
+                "Battery current is elevated."
+            );
+        }
+
+
+        // ----------------------------------------------------
+        // Determine overall prediction
+        // ----------------------------------------------------
+
+        let predictionStatus;
+        let predictionMessage;
+
+
+        if (riskScore >= 60) {
+
+            predictionStatus = "CRITICAL";
+
+            predictionMessage =
+                "Critical battery/vehicle condition detected. " +
+                "Immediate service inspection is recommended.";
+
+        }
+        else if (riskScore >= 30) {
+
+            predictionStatus = "WARNING";
+
+            predictionMessage =
+                "Early warning detected. " +
+                "The vehicle should be monitored and service " +
+                "may be required soon.";
+
+        }
+        else {
+
+            predictionStatus = "NORMAL";
+
+            predictionMessage =
+                "Battery condition is stable. " +
+                "No immediate fault is predicted.";
+        }
+
+
+        // ----------------------------------------------------
+        // Update prediction panel
+        // ----------------------------------------------------
+
+        const alertElement =
+            document.getElementById("predictiveAlert");
+
+
+        if (alertElement) {
+
+            alertElement.textContent =
+                predictionMessage;
+
+            alertElement.className =
+                "prediction-message " +
+                predictionStatus.toLowerCase();
+        }
+
+
+        // ----------------------------------------------------
+        // Update vehicle status
+        // ----------------------------------------------------
+
+        const vehicleStatus =
+            document.getElementById("vehicleStatus");
+
+
+        if (vehicleStatus) {
+
+            vehicleStatus.textContent =
+                predictionStatus === "NORMAL"
+                    ? "HEALTHY"
+                    : predictionStatus;
+        }
+
+
+        // ----------------------------------------------------
+        // Display console information
+        // ----------------------------------------------------
+
+        console.log(
+            "----------------------------------------"
+        );
+
+        console.log(
+            "BATTERY PREDICTION"
+        );
+
+        console.log(
+            "SOH:",
+            soh
+        );
+
+        console.log(
+            "Voltage:",
+            voltage
+        );
+
+        console.log(
+            "Temperature:",
+            temperature
+        );
+
+        console.log(
+            "Current:",
+            current
+        );
+
+        console.log(
+            "Risk score:",
+            riskScore
+        );
+
+        console.log(
+            "Prediction:",
+            predictionStatus
+        );
+
+        console.log(
+            "Warnings:",
+            warnings
+        );
+
+        console.log(
+            "----------------------------------------"
+        );
+
+
+        // ----------------------------------------------------
+        // Save prediction for other dashboard functions
+        // ----------------------------------------------------
+
+        window.evPrediction = {
+
+            status: predictionStatus,
+
+            riskScore: riskScore,
+
+            warnings: warnings,
+
+            soh: soh,
+
+            voltage: voltage,
+
+            current: current,
+
+            temperature: temperature,
+
+            power: power
         };
 
-        window.evPredictionErrorLogged = false;
-        console.log("ML SOH prediction updated:", predictedSOH);
-    } catch (error) {
-        if (!window.evPredictionErrorLogged) {
-            console.error("SOH prediction integration error:", error);
-            window.evPredictionErrorLogged = true;
-        }
-    } finally {
-        window.evPredictionInProgress = false;
+
+    }
+    catch (error) {
+
+        console.error(
+            "Battery prediction error:",
+            error
+        );
     }
 }
 // ============================================================
@@ -3841,9 +4053,7 @@ const faultScenarios = {
    RUN FAULT SCENARIO
    ========================================================= */
 
-async function runFaultScenario(scenarioName) {
-
-    if (window.faultInjectionRequestInProgress) return;
+function runFaultScenario(scenarioName) {
 
     console.log("");
     console.log("======================================");
@@ -3856,7 +4066,7 @@ async function runFaultScenario(scenarioName) {
     );
 
 
-    let data =
+    const data =
         faultScenarios[scenarioName];
 
 
@@ -3869,39 +4079,6 @@ async function runFaultScenario(scenarioName) {
 
         return;
     }
-
-    window.faultInjectionRequestInProgress = true;
-
-    try {
-
-        const response = await fetch("/api/fault-injection", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ scenario: scenarioName })
-        });
-
-        if (!response.ok) {
-            throw new Error(
-                "Fault injection API returned HTTP " + response.status
-            );
-        }
-
-        const result = await response.json();
-
-        if (!result?.success || !result.simulation || !result.prediction) {
-            throw new Error("Fault injection response is invalid.");
-        }
-
-        data = {
-            voltage: Number(result.simulation.voltage),
-            current: Number(result.simulation.current),
-            temperature: Number(result.simulation.temperature),
-            soh: Number(result.simulation.soh),
-            tyrePressure: Number(result.simulation.tyre_pressure),
-            speed: Number(result.simulation.speed)
-        };
-
-        const backendPrediction = result.prediction;
 
 
     console.log(
@@ -4058,11 +4235,25 @@ async function runFaultScenario(scenarioName) {
        DETERMINE PREDICTION
        ----------------------------------------- */
 
-    const prediction = String(
-        backendPrediction.severity || "normal"
-    ).toUpperCase();
+    let prediction = "NORMAL";
+    let recommendation = "Vehicle condition is healthy.";
 
-    const recommendation = backendPrediction.message;
+
+    if (riskScore >= 6) {
+
+        prediction = "CRITICAL";
+
+        recommendation =
+            "STOP VEHICLE AND VISIT SERVICE CENTER.";
+
+    } else if (riskScore >= 2) {
+
+        prediction = "WARNING";
+
+        recommendation =
+            "REDUCE LOAD AND CHECK VEHICLE CONDITION.";
+
+    }
 
 
     /* -----------------------------------------
@@ -4077,9 +4268,9 @@ async function runFaultScenario(scenarioName) {
 
     predictionElement.textContent =
         "Prediction: " +
-        backendPrediction.status +
-        " | Severity: " +
-        prediction;
+        prediction +
+        " | Risk Score: " +
+        riskScore;
 
 
     const recommendationElement =
@@ -4211,7 +4402,10 @@ async function runFaultScenario(scenarioName) {
         riskScore
     );
 
-    console.log("Backend fault prediction:", backendPrediction);
+    console.log(
+        "Prediction:",
+        prediction
+    );
 
     console.log(
         "Warnings:",
@@ -4223,28 +4417,9 @@ async function runFaultScenario(scenarioName) {
         recommendation
     );
 
-    console.log("======================================");
-    } catch (error) {
-        console.error("Fault injection error:", error);
-
-        const predictionElement = document.getElementById(
-            "simulationPrediction"
-        );
-        const recommendationElement = document.getElementById(
-            "simulationRecommendation"
-        );
-
-        if (predictionElement) {
-            predictionElement.textContent = "Fault simulation failed.";
-        }
-
-        if (recommendationElement) {
-            recommendationElement.textContent =
-                "Unable to contact the fault simulation service.";
-        }
-    } finally {
-        window.faultInjectionRequestInProgress = false;
-    }
+    console.log(
+        "======================================"
+    );
 }
 /* ============================================================
    STEP 43

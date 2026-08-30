@@ -1,0 +1,110 @@
+{
+    "best_model": "Ridge",
+    "target_column": "SOH_percent",
+    "input_dataset": "C:\\Major project\\flask_app\\processed\\soh\\combined_soh_dataset.csv",
+    "model_file": "C:\\Major project\\flask_app\\processed\\soh\\models\\leakage_free\\leakage_free_ridge_pipeline.pkl",
+    "feature_columns": [
+        "Cycle",
+        "Capacity_Ah",
+        "Voltage_Min_V",
+        "Voltage_Max_V",
+        "Voltage_Mean_V",
+        "Voltage_Final_V",
+        "Current_Min_A",
+        "Current_Max_A",
+        "Current_Mean_A",
+        "Temperature_Min_C",
+        "Temperature_Max_C",
+        "Temperature_Mean_C",
+        "Temperature_Final_C",
+        "Discharge_Time_s",
+        "Voltage_Range_V",
+        "Current_Range_A",
+        "Temperature_Range_C",
+        "Source_Dataset"
+    ],
+    "metrics": {
+        "MAE": 3.8804551397595946,
+        "RMSE": 4.970765966358087,
+        "R2": 0.8446692504599043,
+        "MAPE": 5.095521557724069
+    },
+    "training_rows": 1010,
+    "testing_rows": 345,
+    "training_groups": [
+        {
+            "Source_Dataset": "CALCE",
+            "Battery_ID": "CS2_37"
+        },
+        {
+            "Source_Dataset": "CALCE",
+            "Battery_ID": "CS2_38"
+        },
+        {
+            "Source_Dataset": "NASA",
+            "Battery_ID": "B0005"
+        },
+        {
+            "Source_Dataset": "NASA",
+            "Battery_ID": "B0007"
+        },
+        {
+            "Source_Dataset": "NASA",
+            "Battery_ID": "B0018"
+        },
+        {
+            "Source_Dataset": "Oxford",
+            "Battery_ID": "Cell1"
+        },
+        {
+            "Source_Dataset": "Oxford",
+            "Battery_ID": "Cell2"
+        },
+        {
+            "Source_Dataset": "Oxford",
+            "Battery_ID": "Cell3"
+        },
+        {
+            "Source_Dataset": "Oxford",
+            "Battery_ID": "Cell4"
+        },
+        {
+            "Source_Dataset": "Oxford",
+            "Battery_ID": "Cell5"
+        },
+        {
+            "Source_Dataset": "Oxford",
+            "Battery_ID": "Cell6"
+        },
+        {
+            "Source_Dataset": "Oxford",
+            "Battery_ID": "Cell8"
+        }
+    ],
+    "testing_groups": [
+        {
+            "Source_Dataset": "CALCE",
+            "Battery_ID": "CS2_35"
+        },
+        {
+            "Source_Dataset": "CALCE",
+            "Battery_ID": "CS2_36"
+        },
+        {
+            "Source_Dataset": "NASA",
+            "Battery_ID": "B0006"
+        },
+        {
+            "Source_Dataset": "Oxford",
+            "Battery_ID": "Cell7"
+        }
+    ],
+    "random_state": 42,
+    "leakage_checks": {
+        "no_battery_cell_group_overlap": true,
+        "no_duplicate_dataset_battery_cycle": true,
+        "no_target_derived_features": true,
+        "no_future_or_full_lifetime_features": true,
+        "preprocessing_fit_only_on_training_data": true
+    }
+}

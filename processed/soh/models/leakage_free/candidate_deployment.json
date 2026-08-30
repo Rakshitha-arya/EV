@@ -1,0 +1,9 @@
+{
+    "model_id": "ridge-18-feature-leakage-free-candidate",
+    "deployment_status": "candidate_not_active",
+    "model_path": "leakage_free_ridge_pipeline.pkl",
+    "feature_columns_path": "feature_columns.json",
+    "metadata_path": "model_metadata.json",
+    "feature_count": 18,
+    "activation": "manual_only"
+}

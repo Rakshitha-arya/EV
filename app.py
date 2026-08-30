@@ -54,6 +54,24 @@ MODEL_PATH = SOH_MODEL_DIR / "best_soh_model.pkl"
 FEATURE_COLUMNS_PATH = SOH_MODEL_DIR / "feature_columns.json"
 MODEL_METADATA_PATH = SOH_MODEL_DIR / "model_metadata.json"
 
+# The deployed model remains active.  The leakage-free artefacts are
+# registered for inspection only and are not loaded for inference.
+DEPLOYED_MODEL_ID = "ridge-20-feature-deployed"
+CANDIDATE_MODEL_ID = "ridge-18-feature-leakage-free-candidate"
+CANDIDATE_MODEL_DIR = SOH_MODEL_DIR / "leakage_free"
+CANDIDATE_MODEL_PATH = (
+    CANDIDATE_MODEL_DIR / "leakage_free_ridge_pipeline.pkl"
+)
+CANDIDATE_FEATURE_COLUMNS_PATH = (
+    CANDIDATE_MODEL_DIR / "feature_columns.json"
+)
+CANDIDATE_MODEL_METADATA_PATH = (
+    CANDIDATE_MODEL_DIR / "model_metadata.json"
+)
+CANDIDATE_DEPLOYMENT_CONFIG_PATH = (
+    CANDIDATE_MODEL_DIR / "candidate_deployment.json"
+)
+
 SOH_DATASET_PATH = SOH_DIR / "combined_soh_dataset.csv"
 SOH_PREDICTIONS_PATH = SOH_DIR / "soh_predictions.csv"
 
@@ -128,7 +146,7 @@ DEFAULT_TELEMETRY = {
     "load_power": 6.3,
 
     "soh": 76.5527351897165,
-    "soc": 76.55,
+    "soc": None,
 
     "speed_kmph": 0.0,
     "motor_rpm": 0.0,
@@ -766,7 +784,6 @@ def get_latest_battery_record() -> dict[str, Any]:
 
         if soh is not None:
             telemetry["soh"] = soh
-            telemetry["soc"] = soh
 
     except Exception as exc:
 
@@ -796,6 +813,120 @@ def get_latest_battery_record() -> dict[str, Any]:
 
     return clean_json_value(
         telemetry
+    )
+
+
+# ============================================================
+# CURRENT TELEMETRY FOR DASHBOARD PREDICTION
+# ============================================================
+
+def get_current_telemetry() -> dict[str, Any]:
+    """Return the latest dataset-backed telemetry without synthetic values."""
+
+    source_path = find_first_existing_csv(
+        [SOH_PREDICTIONS_PATH, SOH_DATASET_PATH]
+    )
+    battery = {
+        "battery_id": None, "source_dataset": None, "cycle": None,
+        "capacity_ah": None, "voltage": None, "current": None,
+        "temperature": None, "power": None, "soh": None,
+    }
+    vehicle = {
+        "speed_kmph": None,
+        "motor_rpm": None,
+        "tyre_pressure": None,
+        "road_condition": None,
+        "drive_mode": None,
+        "unavailable_fields": [
+            "speed_kmph", "motor_rpm", "tyre_pressure",
+            "road_condition", "drive_mode",
+        ],
+    }
+    prediction_input: dict[str, Any] = {}
+    source_details = {
+        "battery_record": (
+            str(source_path.relative_to(BASE_DIR))
+            if source_path is not None else None
+        ),
+        "feature_record": None,
+    }
+
+    if source_path is not None:
+        try:
+            source_data = read_csv_safely(source_path)
+            if source_data.empty:
+                raise ValueError("Current telemetry source is empty.")
+
+            latest = source_data.iloc[-1]
+            feature_row = latest
+
+            # Prediction results omit input features, so use the matching row
+            # from the source dataset when it is available.
+            if source_path != SOH_DATASET_PATH and SOH_DATASET_PATH.exists():
+                feature_data = read_csv_safely(SOH_DATASET_PATH)
+                match = feature_data
+                for column in ["Source_Dataset", "Battery_ID", "Cycle"]:
+                    if column in match.columns and column in latest.index:
+                        match = match.loc[
+                            match[column].astype(str) == str(latest.get(column))
+                        ]
+                if not match.empty:
+                    feature_row = match.iloc[-1]
+                    source_details["feature_record"] = str(
+                        SOH_DATASET_PATH.relative_to(BASE_DIR)
+                    )
+
+            for column, field in {
+                "Battery_ID": "battery_id",
+                "Source_Dataset": "source_dataset",
+            }.items():
+                if column in latest.index and pd.notna(latest.get(column)):
+                    value = str(latest.get(column))
+                    battery[field] = value
+                    prediction_input[column] = value
+
+            for column, field in {
+                "Cycle": "cycle",
+                "Capacity_Ah": "capacity_ah",
+                "Voltage_Mean_V": "voltage",
+                "Current_Mean_A": "current",
+                "Temperature_Mean_C": "temperature",
+            }.items():
+                row = feature_row if column in feature_row.index else latest
+                value = safe_float(row.get(column), default=float("nan"))
+                if math.isfinite(value):
+                    battery[field] = value
+                    prediction_input[column] = value
+
+            # Include only real model inputs; missing values remain absent.
+            for column in EXPECTED_FEATURES:
+                if column == "Source_Dataset" or column not in feature_row.index:
+                    continue
+                value = safe_float(feature_row.get(column), default=float("nan"))
+                if math.isfinite(value):
+                    prediction_input[column] = value
+
+            battery["soh"] = extract_soh_from_row(latest)
+            if battery["soh"] is None:
+                battery["soh"] = extract_soh_from_row(feature_row)
+
+            if battery["voltage"] is not None and battery["current"] is not None:
+                battery["power"] = battery["voltage"] * battery["current"]
+
+        except Exception as exc:
+            print(f"Warning: unable to load current telemetry: {exc}")
+
+    battery["unavailable_fields"] = [
+        field
+        for field in [
+            "battery_id", "source_dataset", "cycle", "capacity_ah",
+            "voltage", "current", "temperature", "power", "soh",
+        ]
+        if battery[field] is None
+    ]
+    battery["prediction_input"] = prediction_input
+    return clean_json_value(
+        {"battery": battery, "vehicle": vehicle, "source": source_details}
     )
 
 
@@ -1047,10 +1178,31 @@ def model_info():
         str(SOH_DATASET_PATH),
     )
 
+    candidate_config = load_json_file(
+        CANDIDATE_DEPLOYMENT_CONFIG_PATH
+    )
+
     return jsonify(
         clean_json_value(
             {
                 "success": True,
+                "deployment": {
+                    "active_model_id": DEPLOYED_MODEL_ID,
+                    "active_model_path": str(MODEL_PATH),
+                    "active_feature_count": len(feature_columns),
+                    "candidate": {
+                        "model_id": CANDIDATE_MODEL_ID,
+                        "deployment_status": "candidate_not_active",
+                        "model_path": str(CANDIDATE_MODEL_PATH),
+                        "feature_columns_path": str(
+                            CANDIDATE_FEATURE_COLUMNS_PATH
+                        ),
+                        "metadata_path": str(
+                            CANDIDATE_MODEL_METADATA_PATH
+                        ),
+                        "config": candidate_config,
+                    },
+                },
                 "feature_count": len(
                     feature_columns
                 ),
@@ -1249,27 +1401,17 @@ def predict_soh():
 )
 def battery():
 
-    telemetry = get_latest_battery_record()
-
-    voltage = safe_float(
-        telemetry.get("voltage")
-    )
-
-    current = safe_float(
-        telemetry.get("current")
-    )
-
-    temperature = safe_float(
-        telemetry.get("temperature")
-    )
-
-    power = voltage * current
-
-    load_power = abs(power)
-
-    soh = safe_float(
-        telemetry.get("soh"),
-        default=0.0,
+    current_telemetry = get_current_telemetry()
+    telemetry = current_telemetry["battery"]
+    voltage = telemetry["voltage"]
+    current = telemetry["current"]
+    temperature = telemetry["temperature"]
+    power = telemetry["power"]
+    soh = telemetry["soh"]
+    health_data = (
+        classify_soh(soh)
+        if soh is not None
+        else {"status": "Unavailable", "condition": "Unavailable"}
     )
 
     response = {
@@ -1282,10 +1424,10 @@ def battery():
             "current": current,
             "temperature": temperature,
             "power": power,
-            "load_power": load_power,
+            "load_power": abs(power) if power is not None else None,
 
             "soh": soh,
-            "soc": soh,
+            "soc": None,
 
             # Naming aliases
             "battery_voltage": voltage,
@@ -1293,47 +1435,20 @@ def battery():
             "battery_temperature": temperature,
             "battery_power": power,
             "battery_soh": soh,
-            "battery_soc": soh,
+            "battery_soc": None,
 
             # Battery identity
-            "battery_id": telemetry.get(
-                "battery_id",
-                "B0005",
-            ),
-
-            "source_dataset": telemetry.get(
-                "source_dataset",
-                "NASA",
-            ),
-
-            "cycle": telemetry.get(
-                "cycle",
-                100,
-            ),
-
-            "capacity_ah": telemetry.get(
-                "capacity_ah",
-                1.85,
-            ),
-
-            # Dashboard defaults
-            "voltage_min": 2.4,
-            "voltage_max": 4.2,
-
-            "current_min": -2.0,
-            "current_max": 0.0,
-
-            "temperature_min": 24.0,
-            "temperature_max": 40.0,
+            "battery_id": telemetry["battery_id"],
+            "source_dataset": telemetry["source_dataset"],
+            "cycle": telemetry["cycle"],
+            "capacity_ah": telemetry["capacity_ah"],
+            "prediction_input": telemetry["prediction_input"],
+            "unavailable_fields": telemetry["unavailable_fields"],
+            "telemetry_source": current_telemetry["source"],
 
             # Additional useful fields
-            "status": classify_soh(soh)[
-                "status"
-            ],
-
-            "condition": classify_soh(soh)[
-                "condition"
-            ],
+            "status": health_data["status"],
+            "condition": health_data["condition"],
         },
     }
 
@@ -2276,12 +2391,27 @@ def data():
 
                 "soh_model": {
 
+                    "model_id": DEPLOYED_MODEL_ID,
+
                     "exists": MODEL_PATH.exists(),
 
                     "loaded": MODEL_LOADED,
 
                     "path": str(
                         MODEL_PATH
+                    ),
+                },
+
+                "soh_model_candidate": {
+
+                    "model_id": CANDIDATE_MODEL_ID,
+
+                    "deployment_status": "candidate_not_active",
+
+                    "exists": CANDIDATE_MODEL_PATH.exists(),
+
+                    "path": str(
+                        CANDIDATE_MODEL_PATH
                     ),
                 },
 

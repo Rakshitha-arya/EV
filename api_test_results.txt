@@ -1,0 +1,20 @@
+
+======================================================================
+EV DIGITAL TWIN - SOH MODEL
+======================================================================
+Project directory: C:\Major project\flask_app
+Model path       : C:\Major project\flask_app\processed\soh\models\best_soh_model.pkl
+Model loaded successfully: Pipeline
+Feature count    : 20
+Model metadata   : loaded
+======================================================================
+
+------------------------------------------------------------
+SOH PREDICTION
+------------------------------------------------------------
+Dataset : NASA
+Battery : B0005
+Cycle   : 100.0
+SOH     : 92.5367%
+Status  : Excellent
+------------------------------------------------------------

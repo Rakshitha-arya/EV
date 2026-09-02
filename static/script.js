@@ -22,6 +22,9 @@ let vehicleAccuracyCircle = null;
 let serviceMarkers = [];
 let currentVehicleLatitude = null;
 let currentVehicleLongitude = null;
+let currentVehicleAccuracy = null;
+let geolocationRequest = null;
+let serviceCenterSearchInProgress = false;
 
 let dashboardData = null;
 let dashboardRefreshInProgress = false;
@@ -1277,41 +1280,60 @@ function createCharts(rows) {
    ============================================================ */
 
 async function useMyLocation() {
-    console.log("STEP 44 - GET VEHICLE GPS");
+    if (geolocationRequest) return geolocationRequest;
 
-    try {
-        const response = await fetch("/api/vehicle");
+    console.log("GPS: requesting browser location.");
 
-        if (!response.ok) {
-            throw new Error("Vehicle API HTTP " + response.status);
+    geolocationRequest = new Promise((resolve, reject) => {
+        if (!navigator.geolocation) {
+            reject(new Error("Browser geolocation is unavailable."));
+            return;
         }
 
-        const data = await response.json();
-
-        if (!data.success || !data.vehicle) {
-            throw new Error("Vehicle GPS data unavailable");
-        }
-
-        const latitude = Number(data.vehicle.latitude);
-        const longitude = Number(data.vehicle.longitude);
+        navigator.geolocation.getCurrentPosition(resolve, reject, {
+            enableHighAccuracy: true,
+            timeout: 10000,
+            maximumAge: 0
+        });
+    }).then(async position => {
+        const latitude = Number(position.coords.latitude);
+        const longitude = Number(position.coords.longitude);
+        const accuracy = Number(position.coords.accuracy);
 
         if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) {
-            throw new Error("Invalid vehicle GPS coordinates");
+            throw new Error("Browser returned invalid GPS coordinates.");
         }
 
+        currentVehicleLatitude = latitude;
+        currentVehicleLongitude = longitude;
+        currentVehicleAccuracy = Number.isFinite(accuracy) ? accuracy : null;
         window.vehicleLatitude = latitude;
         window.vehicleLongitude = longitude;
-        setText("navigatorLocation", `${latitude.toFixed(6)}, ${longitude.toFixed(6)}`);
+
+        const locationText = `${latitude.toFixed(6)}, ${longitude.toFixed(6)}`;
+        const accuracyText = currentVehicleAccuracy === null
+            ? ""
+            : ` (accuracy: ${Math.round(currentVehicleAccuracy)} m)`;
+
+        setText("navigatorLocation", locationText + accuracyText);
         getElement("serviceSection")?.classList.remove("hidden");
-        initializeServiceMap(latitude, longitude);
+        initializeServiceMap(latitude, longitude, currentVehicleAccuracy);
         await findServiceCenters(latitude, longitude);
 
-        console.log("Vehicle GPS successfully connected.");
-    } catch (error) {
-        console.error("Vehicle GPS ERROR:", error);
-        setText("navigatorLocation", "Vehicle GPS unavailable");
-        getElement("serviceSection")?.classList.add("hidden");
-    }
+        console.log("GPS: browser location received.", {
+            latitude,
+            longitude,
+            accuracy: currentVehicleAccuracy
+        });
+    }).catch(error => {
+        console.warn("GPS: Location unavailable.", error.message);
+        setText("navigatorLocation", "Location unavailable");
+        getElement("serviceSection")?.classList.remove("hidden");
+    }).finally(() => {
+        geolocationRequest = null;
+    });
+
+    return geolocationRequest;
 }
 
 
@@ -1321,7 +1343,8 @@ async function useMyLocation() {
 
 function initializeServiceMap(
     latitude,
-    longitude
+    longitude,
+    accuracy = currentVehicleAccuracy
 ) {
     console.log("STEP 45 - INITIALIZING SERVICE MAP");
 
@@ -1340,6 +1363,9 @@ function initializeServiceMap(
 
     currentVehicleLatitude = latitude;
     currentVehicleLongitude = longitude;
+    currentVehicleAccuracy = Number.isFinite(Number(accuracy))
+        ? Number(accuracy)
+        : null;
     window.vehicleLatitude = latitude;
     window.vehicleLongitude = longitude;
 
@@ -1386,7 +1412,7 @@ function initializeServiceMap(
         );
 
     vehicleAccuracyCircle = L.circle([latitude, longitude], {
-        radius: 100,
+        radius: currentVehicleAccuracy ?? 100,
         color: "#2563eb",
         fillColor: "#2563eb",
         fillOpacity: 0.08,
@@ -1405,6 +1431,8 @@ async function findServiceCenters(
     latitude = currentVehicleLatitude,
     longitude = currentVehicleLongitude
 ) {
+    if (serviceCenterSearchInProgress) return;
+
     console.log("STEP 45 - FINDING SERVICE CENTERS");
 
     latitude = Number(latitude ?? window.vehicleLatitude);
@@ -1412,13 +1440,14 @@ async function findServiceCenters(
 
     if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) {
         console.error("Cannot find service centers: GPS unavailable.");
-        setText("navigatorLocation", "Vehicle GPS location is unavailable.");
+        setText("navigatorLocation", "Location unavailable");
         return;
     }
 
+    serviceCenterSearchInProgress = true;
     currentVehicleLatitude = latitude;
     currentVehicleLongitude = longitude;
-    initializeServiceMap(latitude, longitude);
+    initializeServiceMap(latitude, longitude, currentVehicleAccuracy);
 
     serviceMarkers.forEach(marker => serviceMap?.removeLayer(marker));
     serviceMarkers = [];
@@ -1522,6 +1551,8 @@ async function findServiceCenters(
         });
 
         serviceMap.fitBounds(L.latLngBounds([[latitude, longitude], ...nearestCenters.map(center => [center.latitude, center.longitude])]), { padding: [40, 40] });
+        setText("navigatorLocation", `${latitude.toFixed(6)}, ${longitude.toFixed(6)}`);
+        setTimeout(() => setText("navigatorLocation", `${latitude.toFixed(6)}, ${longitude.toFixed(6)}`), 0);
         setText("navigatorLocation", `Nearest service center: ${nearestCenters[0].name} — ${formatDistance(nearestCenters[0].distance)} away.`);
 
     } catch (error) {
@@ -1529,7 +1560,9 @@ async function findServiceCenters(
         if (serviceList) {
             serviceList.innerHTML = "<div class=\"service-error\"><strong>Unable to load service centers.</strong><p>Please check your internet connection and try again.</p></div>";
         }
-        setText("navigatorLocation", "Service center search is temporarily unavailable.");
+        setText("navigatorLocation", `${latitude.toFixed(6)}, ${longitude.toFixed(6)} — service center search is temporarily unavailable.`);
+    } finally {
+        serviceCenterSearchInProgress = false;
     }
 }
 
@@ -1735,6 +1768,7 @@ document.addEventListener(
 
         window.evDigitalTwinInitialized = true;
         refreshDashboard();
+        useMyLocation();
 
 
         /*
